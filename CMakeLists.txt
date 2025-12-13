@@ -23,7 +23,7 @@ if(MSVC)
 add_compile_options(/arch:AVX2) #make sure SIMD optimizations take place
 endif()
 
-project(mygame)
+project(LiteCityForge)
 
 
 set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
@@ -33,15 +33,15 @@ set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 
 
-add_subdirectory(thirdparty/glfw-3.3.2)			#window oppener
-add_subdirectory(thirdparty/glad)				#opengl loader
-add_subdirectory(thirdparty/stb_image)			#loading immaged
-add_subdirectory(thirdparty/stb_truetype)		#loading ttf files
-#add_subdirectory(thirdparty/enet-1.3.17)		#networking
-#add_subdirectory(thirdparty/raudio)				#audio
-add_subdirectory(thirdparty/glm)				#math
-add_subdirectory(thirdparty/imgui-docking)		#ui
-add_subdirectory(thirdparty/gl2d)				#rendering
+add_subdirectory(EXT_Depend/glfw-3.3.2)			#window oppener
+add_subdirectory(EXT_Depend/glad)				#opengl loader
+add_subdirectory(EXT_Depend/stb_image)			#loading immaged
+add_subdirectory(EXT_Depend/stb_truetype)		#loading ttf files
+#add_subdirectory(EXT_Depend/enet-1.3.17)		#networking
+#add_subdirectory(EXT_Depend/raudio)				#audio
+add_subdirectory(EXT_Depend/glm)				#math
+add_subdirectory(EXT_Depend/imgui-docking)		#ui
+add_subdirectory(EXT_Depend/gl2d)				#rendering
 
 
 # MY_SOURCES is defined to be a list of all the source files for my game 
