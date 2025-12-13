@@ -6,12 +6,12 @@
 #include <openglErrorReporting.h>
 #include <Shader.h>
 #include <stb_image/stb_image.h>
+#include "Gui.h"
 
 #include "imgui.h"
 #include "backends/imgui_impl_glfw.h"
 #include "backends/imgui_impl_opengl3.h"
 #include "imguiThemes.h"
-
 
 
 static void error_callback(int error, const char *description);
@@ -37,8 +37,9 @@ int main(void)
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 #endif
-
-	GLFWwindow *window = glfwCreateWindow(1000, 1000, "LiteCityForge", NULL, NULL);
+	GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+	const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+	GLFWwindow *window = glfwCreateWindow(mode->width, mode->height, "LiteCityForge", monitor, nullptr);
 	if (!window)
 	{
 		glfwTerminate();
@@ -52,6 +53,12 @@ int main(void)
 		exit(EXIT_FAILURE);
 	}
 
+	Gui gui;
+	if (!gui.Initialize_GUI(window, "#version 330"))
+	{
+		return -1;
+	}
+
 	// Shader mainShader("../include/triangle.vert",
     //              	"../include/triangle.frag");
 
@@ -60,56 +67,26 @@ int main(void)
 	
 	//glfwSwapInterval(1); //vsync
 
-#pragma region imgui
-#if REMOVE_IMGUI == 0
-	ImGui::CreateContext();
-	//ImGui::StyleColorsDark();				//you can use whatever imgui theme you like!
-	//imguiThemes::yellow();
-	//imguiThemes::gray();
-	//imguiThemes::green();
-	imguiThemes::red();
-	//imguiThemes::embraceTheDarkness();
-
-	ImGuiIO &io = ImGui::GetIO(); (void)io;
-	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-	//io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
-	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;           // Enable Docking
-	io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;         // Enable Multi-Viewport / Platform Windows
-	//io.ConfigViewportsNoAutoMerge = true;
-	//io.ConfigViewportsNoTaskBarIcon = true;
-
-	io.FontGlobalScale = 2.0f; //make text bigger please!
-
-	ImGuiStyle &style = ImGui::GetStyle();
-	if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
-	{
-		//style.WindowRounding = 0.0f;
-		style.Colors[ImGuiCol_WindowBg].w = 0.f;
-		style.Colors[ImGuiCol_DockingEmptyBg].w = 0.f;
-	}
-
-	ImGui_ImplGlfw_InitForOpenGL(window, true);
-	ImGui_ImplOpenGL3_Init("#version 330");
-#endif
-#pragma endregion
-
-
-
-	gl2d::init();
-	gl2d::Renderer2D renderer;
-	renderer.create();
+	// gl2d::init();
+	// gl2d::Renderer2D renderer;
+	// renderer.create();
 
 while (!glfwWindowShouldClose(window))
 {
 	processInput(window);
 	viewPort_Setup(window);
 
+	//GUI
+	gui.BeginFrameGUI();
+	gui.DrawGUI();
+	gui.EndFrameGUI();
+
 	//mainShader.use();
 
     glfwSwapBuffers(window);
     glfwPollEvents();
 }
-
+	gui.ShutdownGUI();
 	glfwDestroyWindow(window);
 	glfwTerminate();
 
@@ -124,7 +101,6 @@ void viewPort_Setup(GLFWwindow *window)
     glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 }
-
 
 void processInput(GLFWwindow *window)
 {

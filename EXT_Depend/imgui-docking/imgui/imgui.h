@@ -56,6 +56,7 @@ Index of this file:
 #include IMGUI_USER_CONFIG
 #endif
 #include "imconfig.h"
+#include <cstdarg>
 
 #ifndef IMGUI_DISABLE
 
