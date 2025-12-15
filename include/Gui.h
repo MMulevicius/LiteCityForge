@@ -9,6 +9,7 @@ class Gui
     bool mEnable3D = false;
     bool mGenerateRequested = false;
     bool mClearRequested = false;
+    bool mQuitRequested = false;
 
     public:
     Gui() = default;
@@ -33,5 +34,6 @@ class Gui
 
     bool WantsGenerate();
     bool WantsClear();
+    bool WantsQuit();
 
 };

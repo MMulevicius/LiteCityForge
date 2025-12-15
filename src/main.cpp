@@ -120,6 +120,10 @@ while (!glfwWindowShouldClose(window))
 		model = glm::scale(model, glm::vec3(5, 1, 5));
 		primitives.DrawCube(primShader, vp, model);
 	}
+	if (gui.WantsQuit())
+	{
+		glfwSetWindowShouldClose(window, true);
+	}
 
 
 	gui.EndFrameGUI();
