@@ -49,8 +49,12 @@ void Gui::DrawGUI()
 
     ImGui::Checkbox("3D mode", &mEnable3D);
 
-    if (ImGui::Button("Generate")) {}
-    if (ImGui::Button("Clear")) {}
+    if (ImGui::Button("Generate")) {
+        mGenerateRequested = true;
+    }
+    if (ImGui::Button("Clear")) {
+        mGenerateRequested = false;
+    }
     
     ImGui::End();
 
@@ -75,4 +79,17 @@ void Gui::ShutdownGUI()
 
     mInitialized = false;
     mWindow = nullptr;
+}
+
+bool Gui::WantsGenerate()
+{
+    bool v = mGenerateRequested;
+    mGenerateRequested = false;
+    return v;
+}
+bool Gui::WantsClear()
+{
+    bool v = mClearRequested;
+    mClearRequested = false;
+    return v;
 }

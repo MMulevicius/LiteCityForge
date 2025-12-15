@@ -1,5 +1,9 @@
 #define GLFW_INCLUDE_NONE
 #include <glad/glad.h>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include "Primitives.h"
+#include "Camera.h"
 #include <GLFW/glfw3.h>
 #include <iostream>
 #include <gl2d/gl2d.h>
@@ -59,10 +63,16 @@ int main(void)
 		return -1;
 	}
 
-	// Shader mainShader("../include/triangle.vert",
-    //              	"../include/triangle.frag");
+	Shader primShader("../include/basic.vert", "../include/basic.frag");
 
+	Primitives primitives;
+	primitives.Initialize_Prim();
 
+	Camera camera;
+
+	bool showCube = false;
+
+	glEnable(GL_DEPTH_TEST);
 	enableReportGlErrors();
 	
 	//glfwSwapInterval(1); //vsync
@@ -73,19 +83,51 @@ int main(void)
 
 while (!glfwWindowShouldClose(window))
 {
-	processInput(window);
-	viewPort_Setup(window);
-
 	//GUI
 	gui.BeginFrameGUI();
 	gui.DrawGUI();
-	gui.EndFrameGUI();
 
-	//mainShader.use();
+	processInput(window);
+	viewPort_Setup(window);
+	// Camera adjustment
+	static float last = (float)glfwGetTime();
+	float now = (float)glfwGetTime();
+	float dt = now - last;
+	last = now;
+
+
+	int w, h;
+	glfwGetFramebufferSize(window, &w, &h);
+	float aspect = (h == 0) ? 1.0f : (float)w / (float)h;
+	camera.UpdatePanXZ(window, dt);
+
+	glm::mat4 proj = glm::ortho(-50.0f * aspect, 50.0f * aspect, -50.0f, 50.0f, -100.0f, 100.0f);
+	glm::mat4 view = glm::lookAt(glm::vec3(0, 40, 40), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
+	glm::mat4 vp = camera.GetVPOrtho(aspect);
+
+
+	//Draw gorund
+	primitives.DrawGround(primShader, vp);
+
+	//Spawn cube if "Generate" is pressed
+	if (gui.WantsGenerate()) showCube = true;
+	if (gui.WantsClear()) showCube = false;
+
+	if (showCube)
+	{
+		glm::mat4 model(1.0f);
+		model = glm::translate(model, glm::vec3(0,0.5f, 0));
+		model = glm::scale(model, glm::vec3(5, 1, 5));
+		primitives.DrawCube(primShader, vp, model);
+	}
+
+
+	gui.EndFrameGUI();
 
     glfwSwapBuffers(window);
     glfwPollEvents();
 }
+	primitives.Shutdown_Prim();
 	gui.ShutdownGUI();
 	glfwDestroyWindow(window);
 	glfwTerminate();
@@ -99,7 +141,7 @@ void viewPort_Setup(GLFWwindow *window)
     glfwGetFramebufferSize(window, &width, &height);
     glViewport(0, 0, width, height);
     glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
 void processInput(GLFWwindow *window)

@@ -7,6 +7,8 @@ class Gui
     GLFWwindow* mWindow = nullptr;
     bool mInitialized = false;
     bool mEnable3D = false;
+    bool mGenerateRequested = false;
+    bool mClearRequested = false;
 
     public:
     Gui() = default;
@@ -28,5 +30,8 @@ class Gui
     {
         return mEnable3D;
     }
+
+    bool WantsGenerate();
+    bool WantsClear();
 
 };
