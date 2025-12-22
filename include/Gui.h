@@ -1,5 +1,6 @@
 #pragma once 
 #include <GLFW/glfw3.h>
+#include "Road/RoadParams.h"
 
 class Gui 
 {
@@ -9,6 +10,9 @@ class Gui
     bool mEnable3D = false;
     bool mGenerateRequested = false;
     bool mQuitRequested = false;
+
+    road::RoadParams mRoadParams;
+    
 
     public:
     Gui() = default;
@@ -34,4 +38,5 @@ class Gui
     bool WantsGenerate();
     bool WantsQuit();
 
+    const road::RoadParams& GetParams() const {return mRoadParams; }
 };

@@ -10,12 +10,12 @@ namespace road
         glm::vec2 cityCenter = {0.0f, 0.0f};
 
         //generation limits
-        int maxIterations = 2000;
-        int maxSegments = 250;
+        int maxIterations = 6000;
+        int maxSegments = 800;
 
         //initial skeleton
         int initialRays = 4;
-        float seedJitterDeg = 0.0f;
+        float seedJitterDeg = 25.0f;
 
         //lengths
         float streetLength = 6.0f;
@@ -27,5 +27,27 @@ namespace road
 
         //random
         unsigned int seed = 1337;
+
+        //constraints
+        float minAngleDeg = 15.0f;
+        float minNodeSpacing = 1.5f;
+        float minSegmentSpacing = 0.35f;
+        float intersectionTol = 1e-4f;
+
+        //spatial query grid
+        float queryCellSize = 8.0f;
+        float snapRadius = 1.0f;
+
+        //candidate policy
+        float branchProbabilityHighway = 0.15f;
+        float branchProbabilityStreet = 0.55f;
+
+        float branchTurnDeg = 60.0f;
+
+        float streetFromHighwayChance = 0.85;
+
+        //gridness
+        float gridness = 1.0f;
+        float gridAngleStepDeg = 30.0f;
     };
 }

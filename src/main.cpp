@@ -44,9 +44,9 @@ int main(void)
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 #endif
-	GLFWmonitor* monitor = glfwGetPrimaryMonitor();
-	const GLFWvidmode* mode = glfwGetVideoMode(monitor);
-	GLFWwindow *window = glfwCreateWindow(mode->width, mode->height, "LiteCityForge", monitor, nullptr);
+	//GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+	//const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+	GLFWwindow *window = glfwCreateWindow(1280, 800, "LiteCityForge", nullptr, nullptr);
 	if (!window)
 	{
 		glfwTerminate();
@@ -77,15 +77,17 @@ int main(void)
 	road::RoadGenerator roadGen;
 	road::RoadParams roadParams;
 	road::RoadNetwork roadNet;
-	road::LineRenderer roadLines;
+	//road::LineRenderer roadLines;
+	road::LineRenderer highwayLines;
+	road::LineRenderer streetLines;
 	std::vector<glm::vec3> roadLineVerts;
 
 	Shader primShader("../include/basic.vert", "../include/basic.frag");
 	Shader lineShader("../include/line.vert", "../include/line.frag");
 
-	if (!roadLines.Initialize_Road())
+	if (!highwayLines.Initialize_Road() || !streetLines.Initialize_Road())
 	{
-		std::cout << "Failed to init LineRenderer\n";
+		std::cout << "Failed to init LineRenderer for highways or streets\n";
 	}
 
 	glEnable(GL_DEPTH_TEST);
@@ -128,36 +130,53 @@ while (!glfwWindowShouldClose(window))
 	//Generate Roads
 	if (showRoads)
 	{
-		glLineWidth(2.0f);
-		roadLines.Draw(lineShader, vp);
+		//Highway first
+		glLineWidth(4.0f);
+		highwayLines.Draw(lineShader, vp);
+
+		//Streets
+		glLineWidth(1.0f);
+		streetLines.Draw(lineShader, vp);
 	}
 
 
 	if(gui.WantsGenerate())
 	{
-		// roadParams.cityRadius = 40.0f;
-		// roadParams.cityCenter = {0.0f, 0.0f};
-		// roadParams.maxSegments = 150;
-		// roadParams.initialRays = 4;
-		// roadParams.highwayLength = 10.0f;
-		// roadParams.seed = 1337;
+		road::RoadParams roadParams = gui.GetParams();
+		std::vector<glm::vec3> highwayVerts;
+		std::vector<glm::vec3> streetVerts;
 
 		roadNet = roadGen.Generate(roadParams);
 		showRoads = true;
 
-		roadLineVerts.clear();
-		roadLineVerts.reserve(roadNet.Segments().size() * 2);
+		highwayVerts.clear();
+		streetVerts.clear();
+
+		highwayVerts.reserve(roadNet.Segments().size() * 2);
+		streetVerts.reserve(roadNet.Segments().size() * 2);
 
 		for (const auto &seg : roadNet.Segments())
 		{
 			const auto &A = roadNet.Nodes().at(seg.a - 1).pos;
 			const auto &B = roadNet.Nodes().at(seg.b - 1).pos;
 
-			roadLineVerts.push_back(glm::vec3(A.x, 0.05f, A.y));
-			roadLineVerts.push_back(glm::vec3(B.x, 0.05f, B.y));
+			glm::vec3 a3(A.x, 0.05f, A.y);
+			glm::vec3 b3(B.x, 0.05f, B.y);
+
+			if (seg.type == road::RoadType::Highway)
+			{
+				highwayVerts.push_back(a3);
+				highwayVerts.push_back(b3);
+			}
+			else
+			{
+				streetVerts.push_back(a3);
+				streetVerts.push_back(b3);
+			}
 		}
 
-		roadLines.Upload(roadLineVerts);
+		highwayLines.Upload(highwayVerts);
+		streetLines.Upload(streetVerts);
 	}
 
 
@@ -173,7 +192,8 @@ while (!glfwWindowShouldClose(window))
     glfwPollEvents();
 }
 	//all shutdowns
-	roadLines.Shutdown_Road();
+	highwayLines.Shutdown_Road();
+	streetLines.Shutdown_Road();
 	primitives.Shutdown_Prim();
 	gui.ShutdownGUI();
 	glfwDestroyWindow(window);

@@ -1,5 +1,7 @@
 #include "Road/RoadGenerator.h"
 #include "Road/RoadCandidate.h"
+#include "Road/RoadQuery.h"
+#include "Road/RoadCandidatePolicy.h"
 #include <queue>
 #include <random>
 #include <cmath>
@@ -50,8 +52,12 @@ namespace road
         //Priority queue of candidates
         std::priority_queue<Candidate, std::vector<Candidate>, CandGreater> pq;
 
+        //Spatial query helper
+        RoadQuery query(net, params.queryCellSize);
+
         //city center/start node
         NodeId center = net.AddNode(params.cityCenter);
+        query.InsertNode(center);
 
         //creates initial directional lines from the centre based on number of rays 
         for (int i = 0; i < params.initialRays; i++)
@@ -85,23 +91,184 @@ namespace road
             //S - start position of the segment
             //E - end position of the segment
             const glm::vec2 S = net.Nodes().at(cand.start - 1).pos;
-            const glm::vec2 E = S + cand.dir * cand.length;
+            glm::vec2 E = S + cand.dir * cand.length;
+            
+            //global bounds
+            if (glm::length(E - params.cityCenter) > params.cityRadius)
+            {
+                iterations++;
+                continue;
+            }
+            //local angle at start
+            if (params.minAngleDeg > 0.0f)
+            {
+                int connected = 0;
+                for (const auto& seg : net.Segments())
+                    if (seg.a == cand.start || seg.b == cand.start)
+                        connected++;
 
-            //accept
-            NodeId endNode = net.AddNode(E);
-            net.AddSegment(cand.start, endNode, cand.type);
+                if (connected >= 2)
+                {        
+                const float minAngleDeg = glm::radians(params.minAngleDeg);
+                const float cosThresh = std::cos(minAngleDeg);
+                
+                bool ok = true;
+                for (const auto& seg: net.Segments())
+                {
+                    if (seg.a != cand.start && seg.b != cand.start) continue;
 
-            //spawn next candidate continuing forward
-            Candidate next;
-            next.start = endNode;
-            next.dir = cand.dir;
-            next.type = cand.type;
-            next.length = cand.length;
-            next.priority = ComputePriority(params, next.type, E);
+                    glm::vec2 A = net.Nodes()[seg.a - 1].pos;
+                    glm::vec2 B = net.Nodes()[seg.b - 1].pos;
 
-            pq.push(next);
+                    glm::vec2 existingDir = (seg.a == cand.start) ? glm::normalize(B - A) : glm::normalize(A - B);
+                    float c = glm::dot(existingDir, glm::normalize(cand.dir));
+                    if(c > cosThresh) { ok = false; break; }
+                }
+                if (!ok) { iterations++; continue; }
+                }
+            }
+
+            //local snap-to-node
+            NodeId snapId = 0;
+            float snapDist = 0.0f;
+            bool snapped = query.FindNearestNode(E, params.snapRadius, cand.start, snapId, snapDist);
+            if(snapped)
+                E = net.Nodes()[snapId - 1].pos;
+
+            //local endpoint spacing (RoadQuery)
+            {
+                auto nearNodes = query.QueryNearbyNodes(E, params.minNodeSpacing);
+                bool tooClose = false;
+
+                for (NodeId id: nearNodes)
+                {
+                     if (id == cand.start) continue;
+                     if(snapped && id == snapId) continue;
+
+                     if (glm::length(net.Nodes()[id - 1].pos - E) < params.minNodeSpacing)
+                     {
+                        tooClose = true;
+                        break;
+                     }
+                }
+                if (tooClose) { iterations++; continue; }
+            }
+
+            //local intersection + segment spacing
+            // fetch only segments in AABB cells overlapped by candidate.
+            auto nearbySeIds = query.QueryNearbySegments(S, E);
+
+            //helper lambdas for intersection + point-to-seg distance
+            auto cross2 = [](const glm::vec2& a, const glm::vec2& b) { return a.x*b.y - a.y*b.x;};
+            auto segIntersect = [&](const glm::vec2& p, const glm::vec2& p2,
+                                    const glm::vec2& q, const glm::vec2& q2) ->bool
+            {
+                glm::vec2 r = p2 - p;
+                glm::vec2 s = q2 - q;
+                float rxs = cross2(r, s);
+                float qpxr = cross2(q - p, r);
+
+                float eps = params.intersectionTol;
+
+                if (std::abs(rxs) <= eps && std::abs(qpxr) <= eps)
+                    return true;
+                
+                if (std::abs(rxs) <= eps)
+                    return false;
+                
+                    float t = cross2(q - p, s) / rxs;
+                    float u = cross2(q - p, r) / rxs;
+                    return (t >= -eps && t <= 1.0f + eps && u >= -eps && u <= 1.0f + eps);
+                    
+            };
+
+            auto distPointToSeg = [&](const glm::vec2& p, const glm::vec2& a, const glm::vec2& b) -> float
+            {
+                glm::vec2 ab = b - a;
+                float ab2 = glm::dot(ab, ab);
+                if(ab2 <= 1e-8f) return glm::length(p - a);
+                float t = glm::dot(p - a, ab) / ab2;
+                t = std::max(0.0f, std::min(1.0f, t));
+                glm::vec2 proj = a + t * ab;
+                return glm::length(p- proj);
+            };
+
+            bool reject = false;
+            auto nearbySegIds = query.QueryNearbySegments(S, E);
+            for (SegId sid: nearbySegIds)
+            {
+                const auto& seg = net.Segments()[sid - 1];
+
+                //ignore segments touching start node (same as pseudocode)
+                if (seg.a == cand.start || seg.b == cand.start)
+                    continue;
+
+                glm::vec2 A = net.Nodes()[seg.a - 1].pos;
+                glm::vec2 B = net.Nodes()[seg.b - 1].pos;
+
+                //intersection reject
+                if (segIntersect(S, E, A, B))
+                {
+                    reject = true;
+                    break;
+                }
+
+                if (params.minSegmentSpacing > 0.0f)
+                {
+                    float d1 = distPointToSeg(S, A, B);
+                    float d2 = distPointToSeg(E, A, B);
+                    if (d1 < params.minSegmentSpacing || d2 < params.minSegmentSpacing)
+                    {
+                        reject = true;
+                        break;
+                    }
+                }
+            }
+
+            if (reject) { iterations++; continue; }
+
+            //accept candidate
+            NodeId endNodeId;
+            if(snapped)
+            {
+                endNodeId = snapId;
+            }
+            else 
+            {
+                endNodeId = net.AddNode(E);
+                query.InsertNode(endNodeId);
+            }
+
+            //add segment
+            SegId newSeg = net.AddSegment(cand.start, endNodeId, cand.type);
+            query.InsertSegment(newSeg);
+
+            //spawn next candidates using policy
+            auto nextCandidates = RoadCandidatePolicy::SpawnNextCandidates(params, rng, endNodeId, cand.dir, cand.type);
+            for (auto& n : nextCandidates)
+            {
+                const glm::vec2 endPos = net.Nodes()[endNodeId - 1].pos;
+                n.priority = ComputePriority(params, n.type, endPos);
+                pq.push(n);
+            }
 
             iterations++;
+
+            //accept
+            // NodeId endNode = net.AddNode(E);
+            // net.AddSegment(cand.start, endNode, cand.type);
+
+            // //spawn next candidate continuing forward
+            // Candidate next;
+            // next.start = endNode;
+            // next.dir = cand.dir;
+            // next.type = cand.type;
+            // next.length = cand.length;
+            // next.priority = ComputePriority(params, next.type, E);
+
+            // pq.push(next);
+
+            // iterations++;
 
         }
 
