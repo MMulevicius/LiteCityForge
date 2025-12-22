@@ -2,8 +2,12 @@
 #include <glad/glad.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
 #include "Primitives.h"
 #include "Camera.h"
+#include "Road/RoadGenerator.h"
+#include "Road/RoadParams.h"
+#include "Road/LineRenderer.h"
 #include <GLFW/glfw3.h>
 #include <iostream>
 #include <gl2d/gl2d.h>
@@ -21,7 +25,6 @@
 static void error_callback(int error, const char *description);
 void processInput(GLFWwindow *window);
 void viewPort_Setup(GLFWwindow *window);
-
 
 
 int main(void)
@@ -63,14 +66,27 @@ int main(void)
 		return -1;
 	}
 
-	Shader primShader("../include/basic.vert", "../include/basic.frag");
+	
 
 	Primitives primitives;
 	primitives.Initialize_Prim();
 
 	Camera camera;
 
-	bool showCube = false;
+	bool showRoads = false;
+	road::RoadGenerator roadGen;
+	road::RoadParams roadParams;
+	road::RoadNetwork roadNet;
+	road::LineRenderer roadLines;
+	std::vector<glm::vec3> roadLineVerts;
+
+	Shader primShader("../include/basic.vert", "../include/basic.frag");
+	Shader lineShader("../include/line.vert", "../include/line.frag");
+
+	if (!roadLines.Initialize_Road())
+	{
+		std::cout << "Failed to init LineRenderer\n";
+	}
 
 	glEnable(GL_DEPTH_TEST);
 	enableReportGlErrors();
@@ -105,21 +121,46 @@ while (!glfwWindowShouldClose(window))
 	glm::mat4 view = glm::lookAt(glm::vec3(0, 40, 40), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
 	glm::mat4 vp = camera.GetVPOrtho(aspect);
 
-
-	//Draw gorund
+	//Draw ground
 	primitives.DrawGround(primShader, vp);
 
-	//Spawn cube if "Generate" is pressed
-	if (gui.WantsGenerate()) showCube = true;
-	if (gui.WantsClear()) showCube = false;
 
-	if (showCube)
+	//Generate Roads
+	if (showRoads)
 	{
-		glm::mat4 model(1.0f);
-		model = glm::translate(model, glm::vec3(0,0.5f, 0));
-		model = glm::scale(model, glm::vec3(5, 1, 5));
-		primitives.DrawCube(primShader, vp, model);
+		glLineWidth(2.0f);
+		roadLines.Draw(lineShader, vp);
 	}
+
+
+	if(gui.WantsGenerate())
+	{
+		// roadParams.cityRadius = 40.0f;
+		// roadParams.cityCenter = {0.0f, 0.0f};
+		// roadParams.maxSegments = 150;
+		// roadParams.initialRays = 4;
+		// roadParams.highwayLength = 10.0f;
+		// roadParams.seed = 1337;
+
+		roadNet = roadGen.Generate(roadParams);
+		showRoads = true;
+
+		roadLineVerts.clear();
+		roadLineVerts.reserve(roadNet.Segments().size() * 2);
+
+		for (const auto &seg : roadNet.Segments())
+		{
+			const auto &A = roadNet.Nodes().at(seg.a - 1).pos;
+			const auto &B = roadNet.Nodes().at(seg.b - 1).pos;
+
+			roadLineVerts.push_back(glm::vec3(A.x, 0.05f, A.y));
+			roadLineVerts.push_back(glm::vec3(B.x, 0.05f, B.y));
+		}
+
+		roadLines.Upload(roadLineVerts);
+	}
+
+
 	if (gui.WantsQuit())
 	{
 		glfwSetWindowShouldClose(window, true);
@@ -131,6 +172,8 @@ while (!glfwWindowShouldClose(window))
     glfwSwapBuffers(window);
     glfwPollEvents();
 }
+	//all shutdowns
+	roadLines.Shutdown_Road();
 	primitives.Shutdown_Prim();
 	gui.ShutdownGUI();
 	glfwDestroyWindow(window);

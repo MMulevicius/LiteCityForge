@@ -52,9 +52,6 @@ void Gui::DrawGUI()
     if (ImGui::Button("Generate")) {
         mGenerateRequested = true;
     }
-    if (ImGui::Button("Clear")) {
-        mGenerateRequested = false;
-    }
     if (ImGui::Button("Quit")) {
         mQuitRequested = true;
     }
@@ -90,12 +87,7 @@ bool Gui::WantsGenerate()
     mGenerateRequested = false;
     return v;
 }
-bool Gui::WantsClear()
-{
-    bool v = mClearRequested;
-    mClearRequested = false;
-    return v;
-}
+
 bool Gui::WantsQuit()
 {
     bool v = mQuitRequested;
