@@ -1,6 +1,7 @@
 #pragma once
 #include "Road/RoadCandidate.h"
 #include "Road/RoadParams.h"
+#include "Road/RoadTypes.h"
 #include <glm/glm.hpp>
 #include <random>
 #include <vector>
@@ -26,7 +27,8 @@ namespace road
             std::mt19937& rng,
             NodeId acceptedEndNodeId,
             const glm::vec2& incomingDir,
-            RoadType incomingType);
+            RoadType incomingType,
+            GenerationPhase phase);
     };
 
 

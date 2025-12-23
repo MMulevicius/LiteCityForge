@@ -6,11 +6,10 @@ namespace road
 {
     //core logic of road generation
     class RoadGenerator
-    {
-    private:
-        float ComputePriority(const RoadParams &params, RoadType type, const glm::vec2 &pos) const; 
+    { 
         
     public:
+        float ComputePriority(const RoadParams &params, RoadType type, const glm::vec2 &pos) const;
         RoadNetwork Generate(const RoadParams &params);
     };
 }

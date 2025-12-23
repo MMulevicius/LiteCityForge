@@ -70,9 +70,18 @@ namespace road
         std::mt19937& rng,
         NodeId acceptedEndNodeId,
         const glm::vec2& incomingDir,
-        RoadType incomingType)
+        RoadType incomingType,
+        GenerationPhase phase)
     {
         std::vector<Candidate> out;
+
+        const RoadType phaseType = (phase == GenerationPhase::Highways)
+            ? RoadType::Highway
+            : RoadType::Street;
+
+        if (incomingType != phaseType)
+            return out;
+
 
         float branchProb = (incomingType == RoadType::Highway)
             ? params.branchProbabilityHighway
@@ -93,24 +102,25 @@ namespace road
         //probabilistic left/right branches
         if (Random01(rng) < branchProb)
         {
-            glm::vec2 leftDir = ApplyGridness(params, rng, RotateDeg(incomingDir, +45.0f));
-            glm::vec2 rightDir = ApplyGridness(params, rng, RotateDeg(incomingDir, -45.0f));
+            float branchDeg = params.gridAngleStepDeg;
+            glm::vec2 leftDir = ApplyGridness(params, rng, RotateDeg(incomingDir, +branchDeg));
+            glm::vec2 rightDir = ApplyGridness(params, rng, RotateDeg(incomingDir, -branchDeg));
 
-            auto [t1, l1] = ChooseBranchTypeAndLength(params, rng, incomingType);
-            auto [t2, l2] = ChooseBranchTypeAndLength(params, rng, incomingType);
+            //auto [t1, l1] = ChooseBranchTypeAndLength(params, rng, incomingType);
+            //auto [t2, l2] = ChooseBranchTypeAndLength(params, rng, incomingType);
 
             Candidate left;
             left.start = acceptedEndNodeId;
             left.dir = leftDir;
-            left.type = t1;
-            left.length = l1;
+            left.type = incomingType;
+            left.length = (incomingType == RoadType::Highway) ? params.highwayLength : params.streetLength;
             out.push_back(left);
 
             Candidate right;
             right.start = acceptedEndNodeId;
             right.dir = rightDir;
-            right.type = t2;
-            right.length = l2;
+            right.type = incomingType;
+            right.length = (incomingType == RoadType::Highway) ? params.highwayLength : params.streetLength;
             out.push_back(right);
         }
 

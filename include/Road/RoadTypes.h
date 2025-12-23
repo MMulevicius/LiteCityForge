@@ -17,6 +17,12 @@ namespace road
         Highway = 1
     };
 
+    enum class GenerationPhase
+    {
+        Streets,
+        Highways
+    };
+
     struct Node
     {
         NodeId id{};

@@ -13,12 +13,15 @@ namespace road
         int maxIterations = 6000;
         int maxSegments = 800;
 
+        int maxHighwaySegments = 50;
+        int maxStreetSegments = 750;
+
         //initial skeleton
         int initialRays = 4;
         float seedJitterDeg = 25.0f;
 
         //lengths
-        float streetLength = 6.0f;
+        float streetLength = 4.0f;
         float highwayLength = 12.0f;
 
         //weights
@@ -46,8 +49,17 @@ namespace road
 
         float streetFromHighwayChance = 0.85;
 
+        //loop params
+        float loopCloseRadius = 18.0f;
+        float loopCloseChance = 0.10f;
+        float loopClosePriorityBoost = 0.4f;
+
         //gridness
         float gridness = 1.0f;
         float gridAngleStepDeg = 30.0f;
+
+        //snapping
+        float segmentSnapRadius = 8.0f;
+        float minSplitFromEnds = 3.0f;
     };
 }
