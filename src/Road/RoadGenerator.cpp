@@ -9,24 +9,6 @@
 
 namespace road 
 {
-    enum class AcceptMode
-    {
-        Reject,
-        Normal,
-        SplitSeg
-    };
-
-    struct AcceptResult
-    {
-        AcceptMode mode = AcceptMode::Reject;
-        glm::vec2 S{};
-        glm::vec2 E{};
-        bool snappedToNode = false;
-        NodeId snapNodeId = 0;
-
-        SegId hitSegId = 0;
-        glm::vec2 hitPoint{};
-    };
     //compares two segments and decides on the priority (used in priority_queue)
     struct CandGreater
     {
