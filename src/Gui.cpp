@@ -128,6 +128,49 @@ void Gui::DrawGUI()
         mRoadParams.loopCloseChance = std::clamp(mRoadParams.loopCloseChance, 0.0f, 1.0f);
 
     }
+    ImGui::SameLine();
+    if(ImGui::Button("Reset to defaults"))
+    {
+        //default params
+        road::RoadParams d;
+        
+        uiSeed = (int)d.seed;
+        uiGridness = d.gridness;
+
+        //grid angle step
+        {
+            angleStepIndex = 0;
+            for (int i = 0; i < 5; i++)
+            {
+                if (angleSteps[i] == d.gridAngleStepDeg) { angleStepIndex = i; break; }
+            }
+            uiGridAngleStep = angleSteps[angleStepIndex];
+        }
+
+        //city / global
+        uiCityRadius = d.cityRadius;
+        uiSeedJitterDeg = d.seedJitterDeg;
+        uiBranchTurnDeg = d.branchTurnDeg;
+        uiMaxIterations = d.maxIterations;
+
+        //highways
+        uiInitialRays = d.initialRays;
+        uiMaxHighwaySegments = d.maxHighwaySegments;
+        uiHighwayLength = d.highwayLength;
+        uiHighwayPriorityWeight = d.highwayPriorityWeight;
+
+        //streets
+        uiMaxStreetSegments = d.maxStreetSegments;
+        uiStreetBranchProbability = d.branchProbabilityStreet;
+        uiStreetFromHighwayChance = d.streetFromHighwayChance;
+        uiStreetLength = d.streetLength;
+        uiStreetPriorityWeight = d.streetPriorWeight;
+
+        //loops
+        uiLoopCloseChance = d.loopCloseChance;
+        uiLoopCloseRadius = d.loopCloseRadius;
+    }
+
     ImGui::Separator();
 
     ImGui::InputInt("Seed", &uiSeed);

@@ -56,7 +56,7 @@ namespace road
 
         //gridness
         float gridness = 1.0f;
-        float gridAngleStepDeg = 30.0f;
+        float gridAngleStepDeg = 90.0f;
 
         //snapping
         float segmentSnapRadius = 8.0f;
