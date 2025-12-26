@@ -41,6 +41,19 @@ namespace road
         return glm::length(p - proj);
 
     }
+    static bool IsDirectionNearGrid(const glm::vec2& dir, float stepDeg, float maxOffDeg)
+    {
+        glm::vec2 d = glm::normalize(dir);
+        float a = std::atan2(d.y, d.x);
+        float step = glm::radians(stepDeg);
+        float snapped = std::round(a / step) * step;
+        float diff = std::abs(a - snapped);
+        const float TWO_PI = 6.28318530718f;
+        diff = std::min(diff, TWO_PI - diff);
+        return diff <= glm::radians(maxOffDeg);
+    }
+
+
     static void SeedStreetsFromHighways(const RoadParams& params, std::mt19937& rng, const RoadNetwork& net,
                                         std::priority_queue<Candidate, std::vector<Candidate>, CandGreater>& pq,
                                         const RoadGenerator& gen)
@@ -219,7 +232,12 @@ namespace road
             if(SegIntersectLoose(S, E, A, B, params.intersectionTol))
             {
                 if (cand.type == RoadType::Street)
-                    continue;
+                {
+                    if(IsDirectionNearGrid(cand.dir, params.gridAngleStepDeg, 10.0f))
+                        continue;
+
+                    return false;
+                }
                 return false;
             }
             
