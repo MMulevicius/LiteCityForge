@@ -5,6 +5,7 @@
 
 namespace road
 {
+
     // container + manager for road graph data structure 
     class RoadNetwork
     {
@@ -16,7 +17,7 @@ namespace road
 
 
         public:
-
+            
             NodeId AddNode(const glm::vec2 &p);
             SegId AddSegment(NodeId a, NodeId b, RoadType type);
 
@@ -25,5 +26,15 @@ namespace road
             const std::vector<Segment>& Segments() const { return mSegments;}
 
             void Clear();
+
+
+            
     };
+
+    struct LotCollection;
+
+    void BuildRoadLineVerts(const RoadNetwork& net, std::vector<glm::vec3>& outHighways,
+                                    std::vector<glm::vec3>& outStreets, float y = 0.05f);
+            
+    void BuildLotLineVerts(const LotCollection& lots, std::vector<glm::vec3>& outLots, float y = 0.02f);
 }

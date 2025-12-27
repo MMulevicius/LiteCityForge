@@ -222,6 +222,8 @@ void Gui::DrawGUI()
         ImGui::SliderFloat("Loop Close Radius", &uiLoopCloseRadius, 1.0f, 60.0f, "%.1f");
     }
 
+    ImGui::Checkbox("Show Lot Debug", &mShowLotDebug);
+
     ImGui::Separator();
 
     if (ImGui::Button("Quit")) {
