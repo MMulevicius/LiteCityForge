@@ -86,6 +86,7 @@ void Gui::DrawGUI()
     if (ImGui::Button("Generate")) {
         
         mGenerateRequested = true;
+        mShowBlocks = true;
 
         //seed + grid
         mRoadParams.seed = (unsigned int)uiSeed;
@@ -223,6 +224,7 @@ void Gui::DrawGUI()
     }
 
     ImGui::Checkbox("Show Lot Debug", &mShowLotDebug);
+    ImGui::Checkbox("Show Block Areas", &mShowBlocks);
 
     ImGui::Separator();
 
