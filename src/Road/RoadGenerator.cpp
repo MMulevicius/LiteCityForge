@@ -233,8 +233,8 @@ namespace road
             {
                 if (cand.type == RoadType::Street)
                 {
-                    if(IsDirectionNearGrid(cand.dir, params.gridAngleStepDeg, 10.0f))
-                        continue;
+                    // if(IsDirectionNearGrid(cand.dir, params.gridAngleStepDeg, 10.0f))
+                    //     continue;
 
                     return false;
                 }

@@ -1,6 +1,5 @@
 #include "Road/RoadNetwork.h"
 #include "Road/LotTypes.h"
-#include "Road/BlockTypes.h"
 #include <algorithm>
 
 namespace road
@@ -90,58 +89,6 @@ namespace road
         {
             AddPolygonsAsLines(outLots, lot.boundary, y);
         }
-    }
-
-    // for block marking
-    static glm::vec2 PolygonCentroidApprox(const std::vector<glm::vec2>& poly)
-    {
-        glm::vec2 c(0.0f);
-        if(poly.empty()) return c;
-
-        for(const auto& p : poly) c += p;
-        c /= (float)poly.size();
-        return c;
-    }
-
-    void BuildBlockOutlineVerts(const std::vector<Block>& blocks, std::vector<glm::vec3>& out, float y)
-    {
-        out.clear();
-        for(const auto& b : blocks)
-        {
-            const auto& poly = b.boundary;
-            if (poly.size() < 3) continue;
-
-            for (size_t i = 0; i < poly.size(); i++)
-            {
-                const auto& p0 = poly[i];
-                const auto& p1 = poly[(i + 1) % poly.size()];
-                out.push_back(glm::vec3(p0.x, y, p0.y));
-                out.push_back(glm::vec3(p1.x, y, p1.y));
-            }
-        }
-    }
-
-    void BuildBlockCentroidsVerts(const std::vector<Block>& blocks, std::vector<glm::vec3>& out, float y, float halfSize)
-    {
-        out.clear();
-        out.reserve(blocks.size() * 4);
-
-        for (const auto& b : blocks)
-        {
-            const auto& poly = b.boundary;
-            if (poly.size() < 3) continue;
-
-            glm::vec2 c = PolygonCentroidApprox(poly);
-
-            //horizontal line
-            out.push_back(glm::vec3(c.x - halfSize, y, c.y));
-            out.push_back(glm::vec3(c.x + halfSize, y, c.y));
-
-            //vertical line
-            out.push_back(glm::vec3(c.x, y, c.y - halfSize));
-            out.push_back(glm::vec3(c.x, y, c.y + halfSize));
-        }
-
     }
 
     //checking unsplit intersections

@@ -11,7 +11,7 @@ class Gui
     bool mGenerateRequested = false;
     bool mQuitRequested = false;
     bool mShowLotDebug = false;
-    bool mShowBlocks = false;
+    //bool mShowBlocks = false;
 
     road::RoadParams mRoadParams;
     
@@ -37,7 +37,7 @@ class Gui
         return mEnable3D;
     }
     bool ShowLotDebug() const { return mShowLotDebug;}
-    bool ShowBlocks() const { return mShowBlocks;}
+    //bool ShowBlocks() const { return mShowBlocks;}
     bool WantsGenerate();
     bool WantsQuit();
 

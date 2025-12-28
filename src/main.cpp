@@ -11,9 +11,6 @@
 #include "Road/LotSubdivision.h"
 #include "Road/LotParams.h"
 #include "Road/LotTypes.h"
-#include "Road/RoadNetwork.h"
-#include "Road/BlockExtractor.h"
-#include "Road/BlockTypes.h"
 #include <GLFW/glfw3.h>
 #include <iostream>
 #include <gl2d/gl2d.h>
@@ -95,23 +92,15 @@ int main(void)
 
 	road::LineRenderer lotLines;
 	std::vector<glm::vec3> lotLineVerts;
-
-	road::BlockExtractor blockExtractor;
-	std::vector<road::Block> blocks;
-	road::LineRenderer blockLines;
-	std::vector<glm::vec3> blockLineVerts;
-	road::LineRenderer blockCentroidLines;
-	std::vector<glm::vec3> blockCentroidVerts;
 	
 
 	Shader primShader("../include/basic.vert", "../include/basic.frag");
 	Shader lineShader("../include/line.vert", "../include/line.frag");
 
 	if (!highwayLines.Initialize_Road() || !streetLines.Initialize_Road() || 
-		!lotLines.Initialize_Road() || !blockLines.Initialize_Road() ||
-		!blockCentroidLines.Initialize_Road())
+		!lotLines.Initialize_Road())
 	{
-		std::cout << "Failed to init LineRenderer for highways/streets/lots/blocks\n";
+		std::cout << "Failed to init LineRenderer for highways/streets/lots\n";
 	}
 
 	glEnable(GL_DEPTH_TEST);
@@ -176,21 +165,6 @@ while (!glfwWindowShouldClose(window))
 			glLineWidth(1.0f);
 		}
 
-		if (gui.ShowBlocks())
-		{
-			glLineWidth(2.0f);
-			lineShader.use();
-			glUniform3f(glGetUniformLocation(lineShader.ID, "uColor"), 1.0f, 0.1f, 0.1f);
-			blockLines.Draw(lineShader, vp);
-			glLineWidth(1.0f);
-
-			glLineWidth(3.0f);
-			lineShader.use();
-			glUniform3f(glGetUniformLocation(lineShader.ID, "uColor"), 1.0f, 0.0f, 0.0f);
-			blockCentroidLines.Draw(lineShader, vp);
-
-			glLineWidth(1.0f);
-		}
 	}
 
 
@@ -234,32 +208,13 @@ while (!glfwWindowShouldClose(window))
 		lotParams.seed = roadParams.seed;
 		lots = lotGen.GenerateLots(roadNet, lotParams);
 		
-		blocks = blockExtractor.ExtractBlocks(roadNet);
-		std::cout << "Blocks found: " <<blocks.size() << "\n";
 
 		road::BuildLotLineVerts(lots, lotLineVerts, 0.02f);
-		road::BuildBlockOutlineVerts(blocks, blockLineVerts, 0.03f);
-		road::BuildBlockCentroidsVerts(blocks, blockCentroidVerts, 0.10f, 0.6f);
-
-
-		//blockLineVerts.clear();
-		// for(const auto& b : blocks)
-		// {
-		// 	const auto& poly = b.boundary;
-		// 	for (size_t i = 0; i < poly.size(); i++)
-		// 	{
-		// 		const auto& p0 = poly[i];
-		// 		const auto& p1 = poly[(i + 1) % poly.size()];
-		// 		blockLineVerts.push_back(glm::vec3(p0.x, 0.20f, p0.y));
-		// 		blockLineVerts.push_back(glm::vec3(p1.x, 0.20f, p1.y));
-		// 	}
-		// }
 
 		highwayLines.Upload(highwayVerts);
 		streetLines.Upload(streetVerts);
 		lotLines.Upload(lotLineVerts);
-		blockLines.Upload(blockLineVerts);
-		blockCentroidLines.Upload(blockCentroidVerts);
+
 	}
 
 
@@ -279,8 +234,6 @@ while (!glfwWindowShouldClose(window))
 	streetLines.Shutdown_Road();
 	primitives.Shutdown_Prim();
 	lotLines.Shutdown_Road();
-	blockCentroidLines.Shutdown_Road();
-	blockLines.Shutdown_Road();
 	gui.ShutdownGUI();
 	glfwDestroyWindow(window);
 	glfwTerminate();

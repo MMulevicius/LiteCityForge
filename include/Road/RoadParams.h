@@ -60,6 +60,6 @@ namespace road
 
         //snapping
         float segmentSnapRadius = 8.0f;
-        float minSplitFromEnds = 3.0f;
+        float minSplitFromEnds = 0.5;
     };
 }
