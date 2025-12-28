@@ -32,9 +32,14 @@ namespace road
     };
 
     struct LotCollection;
+    struct Block;
 
     void BuildRoadLineVerts(const RoadNetwork& net, std::vector<glm::vec3>& outHighways,
                                     std::vector<glm::vec3>& outStreets, float y = 0.05f);
             
     void BuildLotLineVerts(const LotCollection& lots, std::vector<glm::vec3>& outLots, float y = 0.02f);
+
+    void BuildBlockOutlineVerts(const std::vector<Block>& blocks, std::vector<glm::vec3>& out, float y = 0.03f);
+    void BuildBlockCentroidsVerts(const std::vector<Block>& blocks, std::vector<glm::vec3>& out, float y = 0.10f, float halfSize = 0.6f);
+    int CountUnsplitIntersections(const RoadNetwork& net);
 }

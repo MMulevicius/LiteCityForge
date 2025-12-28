@@ -1,5 +1,6 @@
 #include "Road/RoadNetwork.h"
 #include "Road/LotTypes.h"
+#include "Road/BlockTypes.h"
 #include <algorithm>
 
 namespace road
@@ -89,5 +90,103 @@ namespace road
         {
             AddPolygonsAsLines(outLots, lot.boundary, y);
         }
+    }
+
+    // for block marking
+    static glm::vec2 PolygonCentroidApprox(const std::vector<glm::vec2>& poly)
+    {
+        glm::vec2 c(0.0f);
+        if(poly.empty()) return c;
+
+        for(const auto& p : poly) c += p;
+        c /= (float)poly.size();
+        return c;
+    }
+
+    void BuildBlockOutlineVerts(const std::vector<Block>& blocks, std::vector<glm::vec3>& out, float y)
+    {
+        out.clear();
+        for(const auto& b : blocks)
+        {
+            const auto& poly = b.boundary;
+            if (poly.size() < 3) continue;
+
+            for (size_t i = 0; i < poly.size(); i++)
+            {
+                const auto& p0 = poly[i];
+                const auto& p1 = poly[(i + 1) % poly.size()];
+                out.push_back(glm::vec3(p0.x, y, p0.y));
+                out.push_back(glm::vec3(p1.x, y, p1.y));
+            }
+        }
+    }
+
+    void BuildBlockCentroidsVerts(const std::vector<Block>& blocks, std::vector<glm::vec3>& out, float y, float halfSize)
+    {
+        out.clear();
+        out.reserve(blocks.size() * 4);
+
+        for (const auto& b : blocks)
+        {
+            const auto& poly = b.boundary;
+            if (poly.size() < 3) continue;
+
+            glm::vec2 c = PolygonCentroidApprox(poly);
+
+            //horizontal line
+            out.push_back(glm::vec3(c.x - halfSize, y, c.y));
+            out.push_back(glm::vec3(c.x + halfSize, y, c.y));
+
+            //vertical line
+            out.push_back(glm::vec3(c.x, y, c.y - halfSize));
+            out.push_back(glm::vec3(c.x, y, c.y + halfSize));
+        }
+
+    }
+
+    //checking unsplit intersections
+
+    bool SegIntersect(const glm::vec2& a, const glm::vec2& b, const glm::vec2& c,
+                                const glm::vec2& d, glm::vec2& out)
+    {
+        glm::vec2 r = b - a;
+        glm::vec2 s = d - c;
+        float denom = r.x * s.y - r.y * s.x;
+        if (std::fabs(denom) < 1e-6f)return false;
+
+        glm::vec2 ac = c - a;
+        float t = (ac.x * s.y - ac.y * s.x) / denom;
+        float u = (ac.x * r.y - ac.y * r.x) / denom;
+
+        if(t > 1e-4f && t < 1.0f - 1e-4f && u > 1e-4f && u < 1.0f - 1e-4f)
+        {
+            out = a + t * r;
+            return true;
+        }
+        return false;
+
+    }
+
+    int CountUnsplitIntersections(const road::RoadNetwork& net)
+    {
+        int count = 0;
+        const auto& nodes = net.Nodes();
+        const auto& segs = net.Segments();
+
+        auto P = [&](road::NodeId id){ return nodes.at(id - 1).pos;};
+
+        for(size_t i = 0; i < segs.size(); i++)
+        for(size_t j = i + 1; j < segs.size(); j++)
+        {
+            const auto& s1 = segs[i];
+            const auto& s2 = segs[j];
+
+            if(s1.a==s2.a || s1.a==s2.b ||s1.b==s2.a ||s1.b==s2.b) continue;
+
+            glm::vec2 hit;
+            if(SegIntersect(P(s1.a), P(s1.b), P(s2.a), P(s2.b), hit))
+                count++;
+        }
+        return count;
     }
 }

@@ -1,6 +1,7 @@
 #include "Road/BlockExtractor.h"
 #include <unordered_map>
 #include <unordered_set>
+#include <iostream>
 #include <cmath>
 #include <algorithm>
 
@@ -26,23 +27,6 @@ namespace road
         }
     };
 
-    // static float Cross(const glm::vec2& a, const glm::vec2& b)
-    // {
-    //     return a.x * b.y - a.y * b.x;
-    // }
-
-    // static float Dot(const glm::vec2& a, const glm::vec2& b)
-    // {
-    //     return a.x * b.x + a.y * b.y;
-    // }
-
-    // static glm::vec2 NormalizeSafe(const glm::vec2& v)
-    // {
-    //     float len = std::sqrt(v.x * v.x + v.y * v.y);
-    //     if (len <= 1e-6f) return glm::vec2(0, 0);
-    //     return v / len;
-    // }
-
     static float SignedArea(const std::vector<glm::vec2>& poly)
     {
         if (poly.size() < 3) return 0.0f;
@@ -61,21 +45,46 @@ namespace road
         return glm::distance(a, b) < eps;
     }
 
-    // //return angle of smallest left turn
-    // static float LeftTurnAngle(const glm::vec2& dirIn, const glm::vec2& dirOut)
-    // {
-    //     glm::vec2 a = NormalizeSafe(dirIn);
-    //     glm::vec2 b = NormalizeSafe(dirOut);
+    static void RemoveConsecutiveDuplicates(std::vector<glm::vec2>& poly, float eps = 1e-4f)
+    {
+        if (poly.size() < 2) return;
 
-    //     float c = Cross(a, b);
-    //     float d = Dot(a, b);
+        std::vector<glm::vec2> out;
+        out.reserve(poly.size());
 
-    //     float ang = std::atan2(c, d);
+        out.push_back(poly[0]);
+        for (size_t i = 1; i < poly.size(); i++)
+        {
+            if (glm::distance(out.back(), poly[i]) >= eps)
+                out.push_back(poly[i]);
+        }
 
-    //     if (ang < 0.0f) ang += 2.0f * 3.1415926535f;
-    //     return ang;
+        if (out.size() >= 2 && glm::distance(out.front(), out.back()) < eps)
+            out.pop_back();
 
-    //}
+            poly.swap(out);
+    }
+
+    static void ComputeAABB(const std::vector<glm::vec2>& poly, glm::vec2& mn, glm::vec2& mx)
+    {
+        mn = glm::vec2(1e30f);
+        mx = glm::vec2(-1e30f);
+        for(const auto& p : poly)
+        {
+            mn.x = std::min(mn.x, p.x); 
+            mn.y = std::min(mn.y, p.y);
+            mx.x = std::max(mx.x, p.x); 
+            mx.y = std::max(mx.y, p.y);
+        }
+    }
+
+    static glm::vec2 Centroid(const std::vector<glm::vec2>& poly)
+    {
+        if(poly.empty()) return glm::vec2(0.0f);
+        glm::vec2 c(0.0f);
+        for (const auto& p : poly) c += p;
+        return c / (float)poly.size();
+    }
 
     std::vector<Block> BlockExtractor::ExtractBlocks(const RoadNetwork& net) const
     {
@@ -93,16 +102,46 @@ namespace road
         };
 
         std::vector<std::vector<NodeId>> adj(nodes.size() + 1);
-        adj.shrink_to_fit();
+        //adj.shrink_to_fit();
 
         //build adjacency
         for (const auto& s: segs)
         {
             if(s.a == 0 || s.b == 0) continue;
+
+            if(s.type == RoadType::Highway)
+                continue;
+
             adj[s.a].push_back(s.b);
             adj[s.b].push_back(s.a);
         }
 
+        {
+            std::vector<Block> unique;
+            unique.reserve(blocks.size());
+
+            for (const auto& b : blocks)
+            {
+                glm::vec2 cb = Centroid(b.boundary);
+
+                bool dup = false;
+                for(const auto& u : unique)
+                {
+                    glm::vec2 cu = Centroid(u.boundary);
+
+                    if (glm::distance(cb, cu) < 1.0f)
+                    {
+                        dup = true;
+                        break;
+                    }
+                }
+
+                if(!dup)
+                    unique.push_back(b);
+            }
+            blocks.swap(unique);
+
+        }   
         //sort each node's neighbor list
         for (NodeId v = 1; v < adj.size(); v++)
         {
@@ -143,6 +182,8 @@ namespace road
                 return {v, nbrs[0]};
             }
 
+            // int nextIdx = (idx + 1);
+            // if (nextIdx >= (int)nbrs.size()) nextIdx = 0;
             int nextIdx = (idx - 1);
             if (nextIdx < 0) nextIdx = (int)nbrs.size() - 1;
 
@@ -155,6 +196,9 @@ namespace road
 
         for (const auto& s : segs)
         {
+            if (s.type == RoadType::Highway)
+                continue;
+
             DirectedEdgeKey starts[2] = { {s.a, s.b}, {s.b, s.a}};
 
             for (const auto& start : starts)
@@ -196,17 +240,35 @@ namespace road
                         if (!loop.empty() && AlmostSame(loop.front(), loop.back()))
                             loop.pop_back();
 
-                        if(loop.size() >= 3)
+                        RemoveConsecutiveDuplicates(loop);
+
+                        if(loop.size() >= 4)
                         {
                             float a = SignedArea(loop);
 
                             if(std::fabs(a) >= minBlockArea)
                             {
+                                glm::vec2 mn, mx;
+                                ComputeAABB(loop, mn, mx);
+
+                                float w = mx.x - mn.x;
+                                float h = mx.y - mn.y;
+
+                                //reject tiny or poor quality blocks
+                                if (w < 2.0f || h < 2.0f)
+                                    break;
+
+                                float aspect = (w > h) ? (w / h) : (h / w);
+                                if (aspect > 6.0f)
+                                    break;
+
                                 Block b;
                                 b.id = (BlockId)blocks.size() + 1;
                                 b.boundary = loop;
                                 b.area = a;
                                 blocks.push_back(std::move(b));
+                                std::cout << "block area: " << std::fabs(a) << "  verts:" << loop.size() << "\n";
+
 
                                 for(const auto& e : walkedEdges)
                                     used.insert(e);
@@ -221,15 +283,16 @@ namespace road
 
         }
 
-        if (!blocks.empty())
+        if (blocks.size() >= 2)
         {
-            auto it = std::max_element(blocks.begin(), blocks.end(), [](const Block& a, const Block& b)
-            {
-                return std::fabs(a.area) < std::fabs(b.area);
-            });
+            std::sort(blocks.begin(), blocks.end(),
+                [](const Block& a, const Block& b) {return std::fabs(a.area) > std::fabs(b.area);});
 
-            blocks.erase(it);
+            float a0 = std::fabs(blocks[0].area);
+            float a1 = std::fabs(blocks[1].area);
 
+            if(a0 > 3.0f * a1)
+                blocks.erase(blocks.begin());
         }
 
         return blocks;

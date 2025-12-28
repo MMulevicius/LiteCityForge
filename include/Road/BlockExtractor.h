@@ -9,7 +9,7 @@ namespace road
     {
         public:
         std::vector<Block> ExtractBlocks(const RoadNetwork& net) const;
-        float minBlockArea = 1.0f;
+        float minBlockArea = 50.0f;
 
     };
 
