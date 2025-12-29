@@ -11,6 +11,7 @@
 #include "Road/LotSubdivision.h"
 #include "Road/LotParams.h"
 #include "Road/LotTypes.h"
+#include "Road/SideWalkGenerator.h"
 #include <GLFW/glfw3.h>
 #include <iostream>
 #include <gl2d/gl2d.h>
@@ -92,15 +93,18 @@ int main(void)
 
 	road::LineRenderer lotLines;
 	std::vector<glm::vec3> lotLineVerts;
+
+	road::LineRenderer sidewalkLines;
+	std::vector<glm::vec3> sidewalkLineVerts;
 	
 
 	Shader primShader("../include/basic.vert", "../include/basic.frag");
 	Shader lineShader("../include/line.vert", "../include/line.frag");
 
 	if (!highwayLines.Initialize_Road() || !streetLines.Initialize_Road() || 
-		!lotLines.Initialize_Road())
+		!lotLines.Initialize_Road() || !sidewalkLines.Initialize_Road())
 	{
-		std::cout << "Failed to init LineRenderer for highways/streets/lots\n";
+		std::cout << "Failed to init LineRenderer for highways/streets/lots/roads\n";
 	}
 
 	glEnable(GL_DEPTH_TEST);
@@ -165,6 +169,16 @@ while (!glfwWindowShouldClose(window))
 			glLineWidth(1.0f);
 		}
 
+		//sidewalks
+		if (gui.ShowSideWalks())
+		{
+			glLineWidth(2.0f);
+			lineShader.use();
+			glUniform3f(glGetUniformLocation(lineShader.ID, "uColor"), 0.65f, 0.65f, 0.65f);
+			sidewalkLines.Draw(lineShader, vp);
+			glLineWidth(1.0f);
+		}
+
 	}
 
 
@@ -207,13 +221,15 @@ while (!glfwWindowShouldClose(window))
 
 		lotParams.seed = roadParams.seed;
 		lots = lotGen.GenerateLots(roadNet, lotParams);
-		
 
 		road::BuildLotLineVerts(lots, lotLineVerts, 0.02f);
+		road::BuildSidewalkLineVerts(roadNet, roadParams, sidewalkLineVerts, 0.06f);
+
 
 		highwayLines.Upload(highwayVerts);
 		streetLines.Upload(streetVerts);
 		lotLines.Upload(lotLineVerts);
+		sidewalkLines.Upload(sidewalkLineVerts);
 
 	}
 
@@ -234,6 +250,7 @@ while (!glfwWindowShouldClose(window))
 	streetLines.Shutdown_Road();
 	primitives.Shutdown_Prim();
 	lotLines.Shutdown_Road();
+	sidewalkLines.Shutdown_Road();
 	gui.ShutdownGUI();
 	glfwDestroyWindow(window);
 	glfwTerminate();

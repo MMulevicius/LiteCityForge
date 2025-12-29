@@ -61,5 +61,11 @@ namespace road
         //snapping
         float segmentSnapRadius = 8.0f;
         float minSplitFromEnds = 0.5;
+
+        //sidewalk
+        float streetHalfWidth = 0.25f;
+        float highwayHalfWidth = 0.45f;
+        float sidewalkWidth = 0.20f;
+        float sidewalkGap = 0.03f;
     };
 }
