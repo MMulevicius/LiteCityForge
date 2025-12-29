@@ -1,6 +1,7 @@
 #pragma once 
 #include <GLFW/glfw3.h>
 #include "Road/RoadParams.h"
+#include "Road/LotParams.h"
 
 class Gui 
 {
@@ -12,8 +13,8 @@ class Gui
     bool mQuitRequested = false;
     bool mShowLotDebug = false;
     bool mShowSidewalks = false;
-    //bool mShowBlocks = false;
-
+    bool mShowGardens = false;
+    road::LotParams mLotParams;
     road::RoadParams mRoadParams;
     
 
@@ -37,11 +38,13 @@ class Gui
     {
         return mEnable3D;
     }
+    bool ShowGardens() const { return mShowGardens;}
     bool ShowLotDebug() const { return mShowLotDebug;}
     bool ShowSideWalks() const { return mShowSidewalks;}
     //bool ShowBlocks() const { return mShowBlocks;}
     bool WantsGenerate();
     bool WantsQuit();
 
+    const road::LotParams& GetLotParams() const {return mLotParams; }
     const road::RoadParams& GetParams() const {return mRoadParams; }
 };

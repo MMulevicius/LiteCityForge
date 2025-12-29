@@ -91,6 +91,21 @@ namespace road
         }
     }
 
+    //garden building
+    void BuildGardenLineVerts(const LotCollection& lots, std::vector<glm::vec3>& outGardens, float y)
+    {
+        outGardens.clear();
+        outGardens.reserve(lots.lots.size() * 8);
+
+        for (const auto& lot : lots.lots)
+        {
+            if (!lot.hasGarden) continue;
+            if (lot.garden.size() < 3) continue;
+
+            AddPolygonsAsLines(outGardens, lot.garden, y);
+        }
+    }
+
     //checking unsplit intersections
 
     bool SegIntersect(const glm::vec2& a, const glm::vec2& b, const glm::vec2& c,

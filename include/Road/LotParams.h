@@ -44,13 +44,25 @@ namespace road
         //clear radius
         float junctionClearRadius = 0.6f;
         
-        // filter
+        //filter
         bool placeLotsOnStreets = true;
         bool placeLotsOnHighways = true;
 
-        // random see
+        //random see
         std::uint32_t seed = 1337u;
 
+        //urbanization
+        float cityRadius = 40.0f;
+        float globalUrbanization = 0.5f;
+        float globalBiasStrength = 0.35f;
+
+        float urbanThreshold = 0.70f;
+        float suburbanThreshold = 0.40f;
+
+        //garden rules
+        float minLotAreaForGarden = 6.0f;
+        float gardenBackRatio = 0.45f;
+        float minGardenDepth = 0.8f;
 
 
     };

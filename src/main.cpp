@@ -88,7 +88,6 @@ int main(void)
 	std::vector<glm::vec3> roadLineVerts;
 
 	road::LotSubdivision lotGen;
-	road::LotParams lotParams;
 	road::LotCollection lots;
 
 	road::LineRenderer lotLines;
@@ -96,15 +95,20 @@ int main(void)
 
 	road::LineRenderer sidewalkLines;
 	std::vector<glm::vec3> sidewalkLineVerts;
+
+	road::LineRenderer gardenLines;
+	std::vector<glm::vec3> gardenLineVerts;
+
 	
 
 	Shader primShader("../include/basic.vert", "../include/basic.frag");
 	Shader lineShader("../include/line.vert", "../include/line.frag");
 
 	if (!highwayLines.Initialize_Road() || !streetLines.Initialize_Road() || 
-		!lotLines.Initialize_Road() || !sidewalkLines.Initialize_Road())
+		!lotLines.Initialize_Road() || !sidewalkLines.Initialize_Road()
+		|| !gardenLines.Initialize_Road())
 	{
-		std::cout << "Failed to init LineRenderer for highways/streets/lots/roads\n";
+		std::cout << "Failed to init LineRenderer for highways/streets/lots/roads/garden\n";
 	}
 
 	glEnable(GL_DEPTH_TEST);
@@ -179,18 +183,28 @@ while (!glfwWindowShouldClose(window))
 			glLineWidth(1.0f);
 		}
 
+		//gardens
+		if (gui.ShowGardens())
+		{
+			glLineWidth(2.0f);
+			lineShader.use();
+			glUniform3f(glGetUniformLocation(lineShader.ID, "uColor"), 0.1f, 0.9f, 0.2f);
+			gardenLines.Draw(lineShader, vp);
+			glLineWidth(1.0f);
+		}
+
 	}
 
 
 
 	if(gui.WantsGenerate())
 	{
-		road::RoadParams roadParams = gui.GetParams();
+		roadParams = gui.GetParams();
 		std::vector<glm::vec3> highwayVerts;
 		std::vector<glm::vec3> streetVerts;
 
 		roadNet = roadGen.Generate(roadParams);
-		std::cout << "Unsplit intersections: " << CountUnsplitIntersections(roadNet) << "\n";
+		//std::cout << "Unsplit intersections: " << CountUnsplitIntersections(roadNet) << "\n";
 		showRoads = true;
 
 		highwayVerts.clear();
@@ -218,18 +232,79 @@ while (!glfwWindowShouldClose(window))
 				streetVerts.push_back(b3);
 			}
 		}
-
+		road::LotParams lotParams = gui.GetLotParams();
 		lotParams.seed = roadParams.seed;
+		lotParams.cityRadius = roadParams.cityRadius;
+
+		// lotParams.minLotAreaForGarden = 0.0f;
+		// lotParams.minGardenDepth = 0.1f;
+		// lotParams.gardenBackRatio = 0.35f;
+
+
+		lotParams.streetHalfWidth = roadParams.streetHalfWidth;
+		lotParams.highwayHalfWidth = roadParams.highwayHalfWidth;
 		lots = lotGen.GenerateLots(roadNet, lotParams);
+
+		int nUrban = 0, nSub = 0, nRural = 0;
+		int passZone = 0, passArea = 0, passDepth = 0, passAll = 0;
+
+		for (const auto& l : lots.lots)
+		{
+			if (l.zone == road::LotZone::Urban) nUrban++;
+			else if (l.zone == road::LotZone::Suburban) nSub++;
+			else nRural++;
+
+			// Step 1: zone
+			if (l.zone != road::LotZone::Suburban) continue;
+			passZone++;
+
+			// Step 2: area
+			if (l.area < lotParams.minLotAreaForGarden) continue;
+			passArea++;
+
+			// Step 3: depth feasibility (recompute from boundary)
+			if (l.boundary.size() < 4) continue;
+			float fullDepth = glm::length(l.boundary[3] - l.boundary[0]);
+			float gardenDepth = fullDepth * lotParams.gardenBackRatio;
+
+			if (gardenDepth < lotParams.minGardenDepth) continue;
+			if ((fullDepth - gardenDepth) < 0.5f) continue;
+			passDepth++;
+
+			// Step 4: actual result
+			if (l.hasGarden) passAll++;
+		}
+
+		std::cout << "Zones => Urban: " << nUrban << " Suburban: " << nSub << " Rural: " << nRural << "\n";
+		std::cout << "Garden pipeline => passZone: " << passZone
+				<< " passArea: " << passArea
+				<< " passDepth: " << passDepth
+				<< " hasGarden: " << passAll << "\n";
+
+		float minA = 1e9f, maxA = 0.0f;
+		for (const auto& l : lots.lots)
+		{
+			minA = std::min(minA, l.area);
+			maxA = std::max(maxA, l.area);
+		}
+		std::cout << "Lot area range: min=" << minA << " max=" << maxA
+				<< " (threshold=" << lotParams.minLotAreaForGarden << ")\n";
+
 
 		road::BuildLotLineVerts(lots, lotLineVerts, 0.02f);
 		road::BuildSidewalkLineVerts(roadNet, roadParams, sidewalkLineVerts, 0.06f);
-
+		road::BuildGardenLineVerts(lots, gardenLineVerts, 0.021f);
 
 		highwayLines.Upload(highwayVerts);
 		streetLines.Upload(streetVerts);
 		lotLines.Upload(lotLineVerts);
 		sidewalkLines.Upload(sidewalkLineVerts);
+		gardenLines.Upload(gardenLineVerts);
+
+		std::cout << "Lots count: " << lots.lots.size() << "\n";
+		std::cout << "Lot verts: " << lotLineVerts.size() << "\n";
+		std::cout << "Garden verts: " << gardenLineVerts.size() << "\n";
+
 
 	}
 
@@ -251,6 +326,7 @@ while (!glfwWindowShouldClose(window))
 	primitives.Shutdown_Prim();
 	lotLines.Shutdown_Road();
 	sidewalkLines.Shutdown_Road();
+	gardenLines.Shutdown_Road();
 	gui.ShutdownGUI();
 	glfwDestroyWindow(window);
 	glfwTerminate();

@@ -223,8 +223,25 @@ void Gui::DrawGUI()
         ImGui::SliderFloat("Loop Close Radius", &uiLoopCloseRadius, 1.0f, 60.0f, "%.1f");
     }
 
+    //lots/urbanization
+    if (ImGui::CollapsingHeader("Lots / Urbanization", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        ImGui::SliderFloat("Global Urbanization", &mLotParams.globalUrbanization, 0.0f, 1.0f, "%.2f");
+        ImGui::SliderFloat("Global Bias Strength", &mLotParams.globalBiasStrength, 0.0f, 1.0f, "%.2f");
+
+        ImGui::Separator();
+        ImGui::SliderFloat("Urban Threshold", &mLotParams.urbanThreshold, 0.0f, 1.0f, "%.2f");
+        ImGui::SliderFloat("Suburban Threshold", &mLotParams.suburbanThreshold, 0.0f, 1.0f, "%.2f");
+
+        ImGui::Separator();
+        ImGui::SliderFloat("Min Lot Area For Garden", &mLotParams.minLotAreaForGarden, 0.0f, 50.0f, "%.1f");
+        ImGui::SliderFloat("Garden Back Ratio", &mLotParams.gardenBackRatio, 0.0f, 0.9f, "%.2f");
+        ImGui::SliderFloat("Min Garden Depth", &mLotParams.minGardenDepth, 0.0f, 5.0f, "%.2f");
+    }
+
     ImGui::Checkbox("Show Lots", &mShowLotDebug);
     ImGui::Checkbox("Show Sidewalks", &mShowSidewalks);
+    ImGui::Checkbox("Show Gardens", &mShowGardens);
     ImGui::Separator();
 
     if (ImGui::Button("Quit")) {

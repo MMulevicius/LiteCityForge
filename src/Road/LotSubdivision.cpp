@@ -7,6 +7,21 @@
 
 namespace road
 {
+    static glm::vec2 CentroidQuad(const std::vector<glm::vec2>& p)
+    {
+        return 0.25f * (p[0] + p[1] + p[2] + p[3]);
+    }
+
+    static float Clamp01(float x)
+    {
+        return std::max(0.0f, std::min(1.0f, x));
+    }
+
+    static float Lerp(float a, float b, float t)
+    {
+        return a + (b - a) * t;
+    }
+
     static float Length(const glm::vec2& v)
     {
         return std::sqrt(v.x * v.x + v.y * v.y);
@@ -37,6 +52,12 @@ namespace road
             a += (double)p.x * (double)q.y - (double)q.x * (double)p.y;
         }
         return (float)(0.5 * a);
+    }
+
+
+    static float AreaAbs(const std::vector<glm::vec2>&poly)
+    {
+        return std::fabs(SignedArea2D(poly));
     }
 
     static void EnsureCCW(std::vector<glm::vec2>& poly)
@@ -469,6 +490,70 @@ namespace road
                         lot.roadSegId = seg.id;
                         lot.roadType = seg.type;
                         lot.boundary = std::move(poly);
+                        lot.centroid = 0.25f * (lot.boundary[0] + lot.boundary[1] + lot.boundary[2] + lot.boundary[3]);
+                        lot.area = std::fabs(SignedArea2D(lot.boundary));
+
+
+                        //urban score
+                        glm::vec2 cityCenter = nodes.empty() ? glm::vec2(0.0f) : nodes[0].pos;
+                        float dist01 = 0.0f;
+                        if (params.cityRadius > 1e-3f)
+                            dist01 = Clamp01(Length(lot.centroid - cityCenter) / params.cityRadius);
+
+                        //near centre => more urban
+                        float scoreDist = 1.0f - dist01;
+                        //road type bias
+                        float scoreRoad = (lot.roadType == RoadType::Highway) ? 0.15f : 0.0f;
+                        
+                        //area bias: smaller lots read “more urban”
+                        float area01 = Clamp01((lot.area - 4.0f) / (30.0f - 4.0f));
+                        float scoreArea = 1.0f - area01;
+
+                        //weighted blend
+                        float localScore = 
+                            0.65f * scoreDist +
+                            0.15f * scoreRoad +
+                            0.20f * scoreArea;
+                        
+                        //global slider nudges score up/down
+                        float globalShift = (params.globalUrbanization - 0.5f) * 2.0f * params.globalBiasStrength;
+                        lot.urbanScore = Clamp01(localScore + globalShift);
+                        if (lot.urbanScore >= params.urbanThreshold) lot.zone = LotZone::Urban;
+                        else if (lot.urbanScore >= params.suburbanThreshold) lot.zone = LotZone::Suburban;
+                        else lot.zone = LotZone::Rural;
+
+
+                            // garden (only suburban, and only if lot is big enough)
+                        lot.hasGarden = false;
+                        lot.garden.clear();
+
+                        if (lot.zone == LotZone::Suburban && lot.area >= params.minLotAreaForGarden)
+                        {
+                            // your quad is near0, near1, far1, far0
+                            glm::vec2 near0 = lot.boundary[0];
+                            glm::vec2 near1 = lot.boundary[1];
+                            glm::vec2 far1  = lot.boundary[2];
+                            glm::vec2 far0  = lot.boundary[3];
+
+                            glm::vec2 depthDir = NormalizeSafe(far0 - near0);
+                            float fullDepth = Length(far0 - near0);
+
+
+
+                            float gardenDepth = fullDepth * params.gardenBackRatio;
+                            if (gardenDepth >= params.minGardenDepth && (fullDepth - gardenDepth) >= 0.5f)
+                            {
+                                // split line position (start of garden, measured from near edge)
+                                float splitFromNear = fullDepth - gardenDepth;
+
+                                glm::vec2 mid0 = near0 + depthDir * splitFromNear;
+                                glm::vec2 mid1 = near1 + depthDir * splitFromNear;
+
+                                lot.hasGarden = true;
+                                lot.garden = { mid0, mid1, far1, far0 };
+                                EnsureCCW(lot.garden);
+                            }
+                        }
 
                         spatial.insert(OBBFromLotPoly(lot.boundary, params.lotPadding));
                         out.lots.push_back(std::move(lot));
