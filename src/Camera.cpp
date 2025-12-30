@@ -34,14 +34,33 @@ void Camera::UpdatePanXZ(GLFWwindow *window, float dt)
     }
 }
 
+
+void Camera::ApplyScrollZoom(float scrollDelta)
+{
+    if (scrollDelta == 0.0f) return;
+
+    // sensitivity
+    const float zoomSpeed = 0.12f; 
+    const float minSize   = 2.0f;
+    const float maxSize   = 500.0f;
+
+    //scroll out = zoom out, scroll in = zoom in
+    mOrthoSize *= (1.0f - scrollDelta * zoomSpeed);
+
+    // clamp
+    if (mOrthoSize < minSize) mOrthoSize = minSize;
+    if (mOrthoSize > maxSize) mOrthoSize = maxSize;
+}
+
 glm::mat4 Camera::GetVPOrtho(float aspect) const
 {
-    glm::mat4 proj = glm::ortho(
-        -mOrthoSize * aspect, mOrthoSize * aspect,
-        -mOrthoSize, mOrthoSize,
-        -100.0f, 100.0f
-    );
+    // ortho view extents come from mOrthoSize (zoom)
+    float halfH = mOrthoSize;
+    float halfW = mOrthoSize * aspect;
+
+    glm::mat4 proj = glm::ortho(-halfW, halfW, -halfH, halfH, -2000.0f, 2000.0f);
 
     glm::mat4 view = glm::lookAt(mPos, mTarget, mUp);
+
     return proj * view;
 }

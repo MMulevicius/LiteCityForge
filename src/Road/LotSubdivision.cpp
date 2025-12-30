@@ -12,6 +12,8 @@ namespace road
         return 0.25f * (p[0] + p[1] + p[2] + p[3]);
     }
 
+    
+
     static float Clamp01(float x)
     {
         return std::max(0.0f, std::min(1.0f, x));
@@ -66,6 +68,124 @@ namespace road
             std::reverse(poly.begin(), poly.end());
     }
 
+    static float QuadAreaAbs(const glm::vec2& a, const glm::vec2& b, const glm::vec2& c, const glm::vec2& d)
+    {
+        std::vector<glm::vec2> p{a, b, c, d};
+        return std::fabs(SignedArea2D(p));
+    }
+
+    static bool BuildFootprintForLot(Lot& lot, const LotParams& params, std::mt19937& rng)
+{
+    lot.hasFootPrint = false;
+    lot.footprint.clear();
+    lot.coverage = 0.0f;
+    lot.floors = 1;
+
+    if (lot.boundary.size() < 4) return false;
+
+    glm::vec2 near0 = lot.boundary[0];
+    glm::vec2 near1 = lot.boundary[1];
+    glm::vec2 far1  = lot.boundary[2];
+    glm::vec2 far0  = lot.boundary[3];
+
+    // if garden exists, clamp far edge to the garden split line (mid0, mid1).
+    if (lot.hasGarden && lot.garden.size() == 4)
+    {
+        // garden is { mid0, mid1, far1, far0 }
+        far0 = lot.garden[0];
+        far1 = lot.garden[1];
+    }
+
+    glm::vec2 widthDir = NormalizeSafe(near1 - near0);
+    glm::vec2 depthDir = NormalizeSafe(far0 - near0);
+
+    float fullWidth = Length(near1 - near0);
+    float fullDepth = Length(far0 - near0);
+    if (fullWidth < 1e-3f || fullDepth < 1e-3f) return false;
+
+    // zone-based multipliers
+    float zMulFront = 1.0f, zMulSide = 1.0f, zMulBack = 1.0f;
+    switch (lot.zone)
+    {
+        case LotZone::Urban:    zMulFront = 0.75f; zMulSide = 0.75f; zMulBack = 0.75f; break;
+        case LotZone::Suburban: zMulFront = 1.00f; zMulSide = 1.00f; zMulBack = 1.00f; break;
+        case LotZone::Rural:    zMulFront = 1.25f; zMulSide = 1.15f; zMulBack = 1.25f; break;
+    }
+
+    // small random jitter to avoid identical shapes
+    std::uniform_real_distribution<float> j(-params.buildingSetBackJitter, params.buildingSetBackJitter);
+    auto jitterMul = [&]() { return 1.0f + j(rng); };
+
+    float sFront = std::max(0.0f, params.buildingSetbackFront * zMulFront * jitterMul());
+    float sSide  = std::max(0.0f, params.buildingSetbackSide  * zMulSide  * jitterMul());
+    float sBack  = std::max(0.0f, params.buildingSetbackBack  * zMulBack  * jitterMul());
+
+    const float minFootW = 0.8f; 
+    const float minFootD = 0.8f;
+
+    // maximum side setback so inner width stays >= minFootW
+    float maxSide = std::max(0.0f, (fullWidth - minFootW) * 0.5f);
+    sSide = std::min(sSide, maxSide);
+
+    // maximum front+back so inner depth stays >= minFootD
+    float maxFB = std::max(0.0f, (fullDepth - minFootD));
+    float fb = sFront + sBack;
+    if (fb > maxFB && fb > 1e-6f)
+    {
+        float scale = maxFB / fb;
+        sFront *= scale;
+        sBack  *= scale;
+    }
+
+
+    float innerW = fullWidth - 2.0f * sSide;
+    float innerD = fullDepth - (sFront + sBack);
+    if (innerW <= 0.5f || innerD <= 0.5f) return false;
+
+    glm::vec2 p0 = near0 + widthDir * sSide + depthDir * sFront;
+    glm::vec2 p1 = near1 - widthDir * sSide + depthDir * sFront;
+    glm::vec2 p2 = far1  - widthDir * sSide - depthDir * sBack;
+    glm::vec2 p3 = far0  + widthDir * sSide - depthDir * sBack;
+
+    float lotArea = (lot.area > 1e-6f) ? lot.area : QuadAreaAbs(near0, near1, far1, far0);
+    float fpArea  = QuadAreaAbs(p0, p1, p2, p3);
+    if (fpArea <= 1e-6f) return false;
+
+    lot.coverage = Clamp01(fpArea / std::max(lotArea, 1e-6f));
+
+    // soft adjust if too chunky
+    if (lot.coverage > params.buildingCoverageMax)
+    {
+        float extra = 0.15f * std::min(innerW, innerD);
+        p0 += widthDir * extra + depthDir * extra;
+        p1 -= widthDir * extra; p1 += depthDir * extra;
+        p2 -= widthDir * extra; p2 -= depthDir * extra;
+        p3 += widthDir * extra; p3 -= depthDir * extra;
+
+        fpArea = QuadAreaAbs(p0, p1, p2, p3);
+        lot.coverage = Clamp01(fpArea / std::max(lotArea, 1e-6f));
+    }
+
+    auto randInt = [&](int lo, int hi)
+    {
+        if (hi < lo) std::swap(lo, hi);
+        std::uniform_int_distribution<int> d(lo, hi);
+        return d(rng);
+    };
+
+    switch (lot.zone)
+    {
+        case LotZone::Urban:    lot.floors = randInt(params.floorsUrbanMin, params.floorsUrbanMax); break;
+        case LotZone::Suburban: lot.floors = randInt(params.floorsSuburbanMin, params.floorsSuburbanMax); break;
+        case LotZone::Rural:    lot.floors = randInt(params.floorsRuralMin, params.floorsRuralMax); break;
+    }
+
+    lot.footprint = { p0, p1, p2, p3 };
+    EnsureCCW(lot.footprint);
+    lot.hasFootPrint = true;
+    return true;
+}
+
     static bool SegSegIntersect(const glm::vec2& a, const glm::vec2& b,
                             const glm::vec2& c, const glm::vec2& d)
     {
@@ -78,6 +198,7 @@ namespace road
         glm::vec2 c_a = c - a;
         float t = cross(c_a, s) / denom;
         float u = cross(c_a, r) / denom;
+
         // allow a tiny amount of touching without counting as a collision
         const float eps = 1e-3f;
         return (t > eps && t < 1.f - eps && u > eps && u < 1.f - eps);
@@ -112,7 +233,7 @@ namespace road
 
     static OBB2 OBBFromLotPoly(const std::vector<glm::vec2>& poly, float padding)
     {
-        // Expected order: near0, near1, far1, far0 (CCW)
+        // expected order: near0, near1, far1, far0 (CCW)
         const glm::vec2& near0 = poly[0];
         const glm::vec2& near1 = poly[1];
         const glm::vec2& far1  = poly[2];
@@ -139,7 +260,7 @@ namespace road
         };
         grow(near1); grow(far1); grow(far0);
 
-        // Inflate AABB 
+        // inflate AABB 
         mn -= glm::vec2(padding);
         mx += glm::vec2(padding);
 
@@ -256,6 +377,7 @@ namespace road
         return false;
     }
 
+
     LotCollection LotSubdivision::GenerateLots(const RoadNetwork& net, const LotParams& params)
     {
         LotCollection out;
@@ -266,13 +388,13 @@ namespace road
 
         LotId nextLotId = 1;
 
-        // Tracks already-placed lots so we can prevent overlaps.
+        // tracks already-placed lots so we can prevent overlaps.
         LotSpatialIndex spatial(params.lotCellSize);
 
         const auto& nodes = net.Nodes();
         const auto& segs = net.Segments();
 
-        // Precompute node degree (how many segments touch each node)
+        // precompute node degree (how many segments touch each node)
         std::vector<int> degree(nodes.size(), 0);
         for (const Segment& s : segs)
         {
@@ -340,7 +462,7 @@ namespace road
                     bool tooCloseToJunction = false;
                     for (size_t ni = 0; ni < nodes.size(); ++ni)
                     {
-                        // Only treat actual junctions as "no-lot zones"
+                        // only treat actual junctions as "no-lot zones"
                         if (degree[ni] < 3) continue;
 
                         glm::vec2 d = nodes[ni].pos - mid;
@@ -412,7 +534,7 @@ namespace road
                         return true;
                     };
 
-                    // Compute best polygon for a given frontage
+                    // compute best polygon for a given frontage
                     auto ComputeBestPoly = [&](float tryFrontage, std::vector<glm::vec2>& outPoly) -> bool
                     {
                         
@@ -474,13 +596,16 @@ namespace road
                         return true;
                     };
 
-                    // Commit a poly as a lot (ONE place)
+                    // commit a poly as a lot (ONE place)
                     auto CommitLot = [&](std::vector<glm::vec2>&& poly)
                     {
                         float frontage = Length(poly[1] - poly[0]); 
                         float depth    = Length(poly[3] - poly[0]);
 
-                        // Reject extremely skinny lots
+                        if (frontage <= 2.0f * params.buildingSetbackSide) return;
+                        if (depth <= (params.buildingSetbackFront + params.buildingSetbackBack)) return;
+
+                        // reject extremely skinny lots
                         if (frontage < depth * 0.25f)
                             return;
 
@@ -523,11 +648,11 @@ namespace road
                         else lot.zone = LotZone::Rural;
 
 
-                            // garden (only suburban, and only if lot is big enough)
+                        // garden (only suburban, and only if lot is big enough)
                         lot.hasGarden = false;
                         lot.garden.clear();
 
-                        if (lot.zone == LotZone::Suburban && lot.area >= params.minLotAreaForGarden)
+                        if (lot.zone == LotZone::Rural && lot.area >= params.minLotAreaForGarden)
                         {
                             // your quad is near0, near1, far1, far0
                             glm::vec2 near0 = lot.boundary[0];
@@ -555,6 +680,8 @@ namespace road
                             }
                         }
 
+                        BuildFootprintForLot(lot, params, rng);
+
                         spatial.insert(OBBFromLotPoly(lot.boundary, params.lotPadding));
                         out.lots.push_back(std::move(lot));
                     };
@@ -580,7 +707,7 @@ namespace road
                         std::vector<glm::vec2> bestPoly;
                         float bestF = 0.0f;
 
-                        // If minimum doesn't fit, give up (advance t by original frontage)
+                        // if minimum doesn't fit, give up (advance t by original frontage)
                         std::vector<glm::vec2> polyMin;
                         if (ComputeBestPoly(minF, polyMin))
                         {
@@ -600,15 +727,15 @@ namespace road
                                 {
                                     bestF = midF;
                                     bestPoly = std::move(polyMid);
-                                    lo = midF;   // try wider
+                                    lo = midF;   
                                 }
                                 else
                                 {
-                                    hi = midF;   // try narrower
+                                    hi = midF;
                                 }
                             }
 
-                            frontage = bestF; // IMPORTANT: advance correctly
+                            frontage = bestF; 
                             CommitLot(std::move(bestPoly));
                             placed = true;
                         }
@@ -664,7 +791,7 @@ namespace road
                                 }
 
                                 CommitLot(std::move(bestPoly));
-                                t += bestF; // consume the filler lot
+                                t += bestF; 
                             }
                             else
                             {
@@ -675,7 +802,6 @@ namespace road
 
                         t += frontage;
 
-                        // continue normal progression 
                     }
                     else
                     {

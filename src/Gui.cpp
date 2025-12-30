@@ -23,7 +23,7 @@ bool Gui::Initialize_GUI(GLFWwindow *window, const char* glslVersion)
     if(!ImGui_ImplGlfw_InitForOpenGL(mWindow, true)) return false;
     if(!ImGui_ImplOpenGL3_Init(glslVersion)) return false;
 
-    //Making sure that the GUI is ready
+    //making sure that the GUI is ready
     mInitialized = true;
     return true;
 }
@@ -41,7 +41,7 @@ void Gui::DrawGUI()
 {
     
     if(!mInitialized) return;
-    //Set default size and position of the GUI
+    //set default size and position of the GUI
     ImGui::SetNextWindowSize(ImVec2(350, 500), ImGuiCond_Always);
     ImGui::SetNextWindowPos(ImVec2(20, 20), ImGuiCond_FirstUseEver);
 
@@ -121,8 +121,8 @@ void Gui::DrawGUI()
         mRoadParams.cityRadius = std::clamp(mRoadParams.cityRadius, 5.0f, 500.0f);
         mRoadParams.maxIterations = std::clamp(mRoadParams.maxIterations, 100, 200000);
         mRoadParams.initialRays = std::clamp(mRoadParams.initialRays, 1, 32);
-        mRoadParams.maxHighwaySegments = std::clamp(mRoadParams.maxHighwaySegments, 0, mRoadParams.maxSegments);
-        mRoadParams.maxStreetSegments = std::clamp(mRoadParams.maxStreetSegments, 0, mRoadParams.maxSegments);
+        //mRoadParams.maxHighwaySegments = std::clamp(mRos = std::clamp(mRoadParams.maxHighwaySegments, 0, mRoadParams.maxSegments);
+        //mRoadParams.maxStreetSegmentadParams.maxStreetSegments, 0, mRoadParams.maxSegments);
         mRoadParams.branchProbabilityHighway = std::clamp(mRoadParams.branchProbabilityHighway, 0.0f, 1.0f);
         mRoadParams.branchProbabilityStreet = std::clamp(mRoadParams.branchProbabilityStreet, 0.0f, 1.0f);
         mRoadParams.streetFromHighwayChance = std::clamp(mRoadParams.streetFromHighwayChance, 0.0f, 1.0f);
@@ -188,6 +188,16 @@ void Gui::DrawGUI()
         ImGui::SliderFloat("Branch Turn (deg)", &uiBranchTurnDeg, 15.0f, 90.0f, "%.1f");
         ImGui::SliderInt("Max Iterations", &uiMaxIterations, 500, 50000);
     }
+
+    //building
+    ImGui::Separator();
+    ImGui::SliderFloat("Building Setback Front", &mLotParams.buildingSetbackFront, 0.0f, 2.0f, "%.2f");
+    ImGui::SliderFloat("Building Setback Side",  &mLotParams.buildingSetbackSide,  0.0f, 2.0f, "%.2f");
+    ImGui::SliderFloat("Building Setback Back",  &mLotParams.buildingSetbackBack,  0.0f, 2.0f, "%.2f");
+    ImGui::SliderFloat("Setback Jitter",&mLotParams.buildingSetBackJitter,0.0f, 0.5f, "%.2f");
+    ImGui::SliderFloat("Coverage Min",  &mLotParams.buildingCoverageMin,  0.05f, 0.9f, "%.2f");
+    ImGui::SliderFloat("Coverage Max",  &mLotParams.buildingCoverageMax,  0.05f, 0.9f, "%.2f");
+    
     //grid controls
     if (ImGui::CollapsingHeader("Grid", ImGuiTreeNodeFlags_DefaultOpen))
     {
@@ -209,7 +219,7 @@ void Gui::DrawGUI()
     //street controls
     if (ImGui::CollapsingHeader("Streets", ImGuiTreeNodeFlags_DefaultOpen))
     {
-        ImGui::SliderInt("Max Street", &uiMaxStreetSegments, 0,2000);
+        ImGui::SliderInt("Max Street", &uiMaxStreetSegments, 0,8000);
         ImGui::SliderFloat("Street Branch Prob", &uiStreetBranchProbability, 0.0f, 1.0f, "%.2f");
         ImGui::SliderFloat("Street From Highway Chance", &uiStreetFromHighwayChance, 0.0f, 1.0f, "%.2f");
         ImGui::SliderFloat("Street Length", &uiStreetLength, 1.0f, 20.0f, "%.1f");
@@ -242,6 +252,8 @@ void Gui::DrawGUI()
     ImGui::Checkbox("Show Lots", &mShowLotDebug);
     ImGui::Checkbox("Show Sidewalks", &mShowSidewalks);
     ImGui::Checkbox("Show Gardens", &mShowGardens);
+    ImGui::Checkbox("Show Footprints", &mShowFootprints);
+
     ImGui::Separator();
 
     if (ImGui::Button("Quit")) {

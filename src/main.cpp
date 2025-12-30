@@ -27,9 +27,15 @@
 #include "imguiThemes.h"
 
 
+//global Y axis variable for zooming in/out
+static float gScrollY = 0.0f;
+
+
 static void error_callback(int error, const char *description);
 void processInput(GLFWwindow *window);
 void viewPort_Setup(GLFWwindow *window);
+
+void ScrollCallback(GLFWwindow* window, double xoffset, double yoffset);
 
 
 int main(void)
@@ -58,6 +64,9 @@ int main(void)
 		exit(EXIT_FAILURE);
 	}
 
+	glfwSetScrollCallback(window, ScrollCallback);
+
+
 	glfwMakeContextCurrent(window);
 	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
 	{
@@ -72,32 +81,39 @@ int main(void)
 	}
 
 	
-
+	//ground variables
 	Primitives primitives;
 	primitives.Initialize_Prim();
 
+	//camera variables
 	Camera camera;
 
+	//road variables
 	bool showRoads = false;
 	road::RoadGenerator roadGen;
 	road::RoadParams roadParams;
 	road::RoadNetwork roadNet;
-	//road::LineRenderer roadLines;
 	road::LineRenderer highwayLines;
 	road::LineRenderer streetLines;
 	std::vector<glm::vec3> roadLineVerts;
 
+	//lot variables
 	road::LotSubdivision lotGen;
 	road::LotCollection lots;
-
 	road::LineRenderer lotLines;
 	std::vector<glm::vec3> lotLineVerts;
 
+	//sidewalk variables
 	road::LineRenderer sidewalkLines;
 	std::vector<glm::vec3> sidewalkLineVerts;
 
+	//garden variables
 	road::LineRenderer gardenLines;
 	std::vector<glm::vec3> gardenLineVerts;
+
+	//building footprint variables
+	road::LineRenderer footprintLines;
+	std::vector<glm::vec3> footprintLineVerts;
 
 	
 
@@ -106,9 +122,9 @@ int main(void)
 
 	if (!highwayLines.Initialize_Road() || !streetLines.Initialize_Road() || 
 		!lotLines.Initialize_Road() || !sidewalkLines.Initialize_Road()
-		|| !gardenLines.Initialize_Road())
+		|| !gardenLines.Initialize_Road() || !footprintLines.Initialize_Road())
 	{
-		std::cout << "Failed to init LineRenderer for highways/streets/lots/roads/garden\n";
+		std::cout << "Failed to init LineRenderer for highways/streets/lots/roads/garden/footprints\n";
 	}
 
 	glEnable(GL_DEPTH_TEST);
@@ -128,36 +144,46 @@ while (!glfwWindowShouldClose(window))
 
 	processInput(window);
 	viewPort_Setup(window);
-	// Camera adjustment
+
+	// camera  and ground adjustment
 	static float last = (float)glfwGetTime();
 	float now = (float)glfwGetTime();
 	float dt = now - last;
 	last = now;
-
-
 	int w, h;
+
 	glfwGetFramebufferSize(window, &w, &h);
 	float aspect = (h == 0) ? 1.0f : (float)w / (float)h;
 	camera.UpdatePanXZ(window, dt);
+	camera.ApplyScrollZoom(gScrollY);
+	gScrollY = 0.0f;
 
-	glm::mat4 proj = glm::ortho(-50.0f * aspect, 50.0f * aspect, -50.0f, 50.0f, -100.0f, 100.0f);
-	glm::mat4 view = glm::lookAt(glm::vec3(0, 40, 40), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
 	glm::mat4 vp = camera.GetVPOrtho(aspect);
+	float cityR = showRoads ? roadParams.cityRadius : gui.GetCityRadius();
 
-	//Draw ground
-	primitives.DrawGround(primShader, vp);
+	// extra ground area beyond city boundries 
+	float margin = 20.0f;
+
+	// ground half extents based on city size
+	float halfW = cityR + margin;
+	float halfH = cityR + margin;
+
+	// center ground on camera position 
+	glm::vec2 centerXZ(roadParams.cityCenter.x, roadParams.cityCenter.y);
+
+	primitives.DrawGround(primShader, vp, centerXZ, halfW, halfH);
 
 
-	//Generate Roads
+	//generate Roads
 	if (showRoads)
 	{
-		//Highway first
+		//highway first
 		glLineWidth(4.0f);
 		lineShader.use();
 		glUniform3f(glGetUniformLocation(lineShader.ID, "uColor"), 0.05f, 0.05f, 0.05f);
 		highwayLines.Draw(lineShader, vp);
 
-		//Streets
+		//streets
 		glLineWidth(1.0f);
 		lineShader.use();
 		glUniform3f(glGetUniformLocation(lineShader.ID, "uColor"), 0.05f, 0.05f, 0.05f);
@@ -193,6 +219,17 @@ while (!glfwWindowShouldClose(window))
 			glLineWidth(1.0f);
 		}
 
+		//building footprints
+		if (gui.ShowFootprints())
+		{
+			glLineWidth(2.0f);
+			lineShader.use();
+			glUniform3f(glGetUniformLocation(lineShader.ID, "uColor"), 0.95f, 0.65f, 0.15f);
+			footprintLines.Draw(lineShader, vp);
+			glLineWidth(1.0f);
+		}
+
+
 	}
 
 
@@ -200,11 +237,18 @@ while (!glfwWindowShouldClose(window))
 	if(gui.WantsGenerate())
 	{
 		roadParams = gui.GetParams();
+
+		std::cout
+		<< "[GUI] cityRadius=" << roadParams.cityRadius
+		<< " maxIterations=" << roadParams.maxIterations
+		<< " maxStreets=" << roadParams.maxStreetSegments   
+		<< " maxHighways=" << roadParams.maxHighwaySegments 
+		<< "\n";
+
 		std::vector<glm::vec3> highwayVerts;
 		std::vector<glm::vec3> streetVerts;
 
 		roadNet = roadGen.Generate(roadParams);
-		//std::cout << "Unsplit intersections: " << CountUnsplitIntersections(roadNet) << "\n";
 		showRoads = true;
 
 		highwayVerts.clear();
@@ -236,11 +280,6 @@ while (!glfwWindowShouldClose(window))
 		lotParams.seed = roadParams.seed;
 		lotParams.cityRadius = roadParams.cityRadius;
 
-		// lotParams.minLotAreaForGarden = 0.0f;
-		// lotParams.minGardenDepth = 0.1f;
-		// lotParams.gardenBackRatio = 0.35f;
-
-
 		lotParams.streetHalfWidth = roadParams.streetHalfWidth;
 		lotParams.highwayHalfWidth = roadParams.highwayHalfWidth;
 		lots = lotGen.GenerateLots(roadNet, lotParams);
@@ -254,15 +293,15 @@ while (!glfwWindowShouldClose(window))
 			else if (l.zone == road::LotZone::Suburban) nSub++;
 			else nRural++;
 
-			// Step 1: zone
+			// zone
 			if (l.zone != road::LotZone::Suburban) continue;
 			passZone++;
 
-			// Step 2: area
+			// area
 			if (l.area < lotParams.minLotAreaForGarden) continue;
 			passArea++;
 
-			// Step 3: depth feasibility (recompute from boundary)
+			// depth feasibility (recompute from boundary)
 			if (l.boundary.size() < 4) continue;
 			float fullDepth = glm::length(l.boundary[3] - l.boundary[0]);
 			float gardenDepth = fullDepth * lotParams.gardenBackRatio;
@@ -271,7 +310,7 @@ while (!glfwWindowShouldClose(window))
 			if ((fullDepth - gardenDepth) < 0.5f) continue;
 			passDepth++;
 
-			// Step 4: actual result
+			// actual result
 			if (l.hasGarden) passAll++;
 		}
 
@@ -294,12 +333,15 @@ while (!glfwWindowShouldClose(window))
 		road::BuildLotLineVerts(lots, lotLineVerts, 0.02f);
 		road::BuildSidewalkLineVerts(roadNet, roadParams, sidewalkLineVerts, 0.06f);
 		road::BuildGardenLineVerts(lots, gardenLineVerts, 0.021f);
+		road::BuildFootprintLineVerts(lots, footprintLineVerts, 0.022f);
+
 
 		highwayLines.Upload(highwayVerts);
 		streetLines.Upload(streetVerts);
 		lotLines.Upload(lotLineVerts);
 		sidewalkLines.Upload(sidewalkLineVerts);
 		gardenLines.Upload(gardenLineVerts);
+		footprintLines.Upload(footprintLineVerts);
 
 		std::cout << "Lots count: " << lots.lots.size() << "\n";
 		std::cout << "Lot verts: " << lotLineVerts.size() << "\n";
@@ -327,6 +369,7 @@ while (!glfwWindowShouldClose(window))
 	lotLines.Shutdown_Road();
 	sidewalkLines.Shutdown_Road();
 	gardenLines.Shutdown_Road();
+	footprintLines.Shutdown_Road();
 	gui.ShutdownGUI();
 	glfwDestroyWindow(window);
 	glfwTerminate();
@@ -336,11 +379,15 @@ while (!glfwWindowShouldClose(window))
 
 void viewPort_Setup(GLFWwindow *window)
 {
-	int width = 0, height = 0;
-    glfwGetFramebufferSize(window, &width, &height);
-    glViewport(0, 0, width, height);
-    glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	int w = 0, h = 0;
+	glfwGetFramebufferSize(window, &w, &h);
+	glViewport(0, 0, w, h);
+
+	glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	float aspect = (h == 0) ? 1.0f : (float)w / (float)h;
+
 }
 
 void processInput(GLFWwindow *window)
@@ -353,4 +400,17 @@ static void error_callback(int error, const char *description)
 {
 	std::cout << "Error: " <<  description << "\n";
 }
+
+void ScrollCallback(GLFWwindow* window, double xoffset, double yoffset)
+{
+	ImGuiIO& io = ImGui::GetIO();
+
+
+    if (io.WantCaptureMouse)
+        return;
+
+
+    gScrollY += (float)yoffset;
+}
+
 

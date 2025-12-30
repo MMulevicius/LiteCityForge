@@ -32,6 +32,11 @@ namespace road
         bool hasGarden = false;
         std::vector<glm::vec2> garden;
 
+        std::vector<glm::vec2> footprint;
+        bool hasFootPrint = false;
+        float coverage = 0.0f;
+        int floors = 1;
+
     };
 
     struct LotCollection

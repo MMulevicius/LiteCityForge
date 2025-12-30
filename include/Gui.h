@@ -14,6 +14,7 @@ class Gui
     bool mShowLotDebug = false;
     bool mShowSidewalks = false;
     bool mShowGardens = false;
+    bool mShowFootprints = false;
     road::LotParams mLotParams;
     road::RoadParams mRoadParams;
     
@@ -22,18 +23,18 @@ class Gui
     Gui() = default;
     ~Gui() = default;
 
-    //Initialization once after window + OpenGL context is created
+    //initialization once 
     bool Initialize_GUI(GLFWwindow *window, const char *glslVersion = "#version 330");
 
-    //Once per frame
+    //once per frame
     void BeginFrameGUI();
     void DrawGUI();
     void EndFrameGUI();
 
-    //Once on shutdown
+    //once on shutdown
     void ShutdownGUI();
 
-    //State getters
+    //state getters
     bool Is3DEnabled() const 
     {
         return mEnable3D;
@@ -41,10 +42,12 @@ class Gui
     bool ShowGardens() const { return mShowGardens;}
     bool ShowLotDebug() const { return mShowLotDebug;}
     bool ShowSideWalks() const { return mShowSidewalks;}
+    bool ShowFootprints() const { return mShowFootprints;}
     //bool ShowBlocks() const { return mShowBlocks;}
     bool WantsGenerate();
     bool WantsQuit();
 
+    float GetCityRadius() const {return mRoadParams.cityRadius;}
     const road::LotParams& GetLotParams() const {return mLotParams; }
     const road::RoadParams& GetParams() const {return mRoadParams; }
 };

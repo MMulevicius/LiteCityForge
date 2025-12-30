@@ -106,6 +106,21 @@ namespace road
         }
     }
 
+    //footprint building
+    void BuildFootprintLineVerts(const LotCollection& lots, std::vector<glm::vec3>& outFootprints, float y)
+    {
+        outFootprints.clear();
+        outFootprints.reserve(lots.lots.size() * 8);
+
+        for (const auto& lot : lots.lots)
+        {
+            if (!lot.hasFootPrint) continue;
+            if (lot.footprint.size() < 3) continue;
+            AddPolygonsAsLines(outFootprints, lot.footprint, y);
+        }
+    }
+
+
     //checking unsplit intersections
 
     bool SegIntersect(const glm::vec2& a, const glm::vec2& b, const glm::vec2& c,

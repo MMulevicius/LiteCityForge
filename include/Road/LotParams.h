@@ -28,11 +28,11 @@ namespace road
 
 
         //spatial hashing
-        float lotCellSize = 6.0f;
+        float lotCellSize = 10.0f;
 
         // how wide each lot is along the road
         float lotMinFrontage = 2.0f;
-        float lotMaxFrontage = 6.0f;
+        float lotMaxFrontage = 10.0f;
 
         //fill frontage
         float fillFrontageFactor = 0.70f;
@@ -63,6 +63,24 @@ namespace road
         float minLotAreaForGarden = 6.0f;
         float gardenBackRatio = 0.45f;
         float minGardenDepth = 0.8f;
+
+        //building foorprint
+        float buildingSetbackFront = 0.25f;
+        float buildingSetbackSide = 0.20f;
+        float buildingSetbackBack = 0.20f;
+
+        //footprint variability
+        float buildingSetBackJitter = 0.10f;
+        float buildingCoverageMin = 0.25f;
+        float buildingCoverageMax = 0.55f;
+
+        //floor ranges per zone
+        int floorsUrbanMin = 2;
+        int floorsUrbanMax = 8;
+        int floorsSuburbanMin = 1;
+        int floorsSuburbanMax = 3;
+        int floorsRuralMin = 1;
+        int floorsRuralMax = 2;
 
 
     };
