@@ -142,6 +142,21 @@ while (!glfwWindowShouldClose(window))
 	gui.BeginFrameGUI();
 	gui.DrawGUI();
 
+	
+	float cityR = showRoads ? roadParams.cityRadius : gui.GetCityRadius();
+	glm::vec2 centerXZ = showRoads
+		? glm::vec2(roadParams.cityCenter.x, roadParams.cityCenter.y)
+		: glm::vec2(0.0f, 0.0f); 
+	
+	static bool prev3D = false;
+	bool is3D = gui._3DEnabled(); 
+
+	if (is3D != prev3D)
+	{
+		camera.Set3DEnabled(is3D, centerXZ, cityR);
+		prev3D = is3D;
+	}
+
 	processInput(window);
 	viewPort_Setup(window);
 
@@ -152,14 +167,20 @@ while (!glfwWindowShouldClose(window))
 	last = now;
 	int w, h;
 
+	camera.Update(dt);
+
+
 	glfwGetFramebufferSize(window, &w, &h);
 	float aspect = (h == 0) ? 1.0f : (float)w / (float)h;
 	camera.UpdatePanXZ(window, dt);
 	camera.ApplyScrollZoom(gScrollY);
 	gScrollY = 0.0f;
 
-	glm::mat4 vp = camera.GetVPOrtho(aspect);
-	float cityR = showRoads ? roadParams.cityRadius : gui.GetCityRadius();
+	glm::mat4 vp = camera.GetVP(aspect);
+
+
+
+
 
 	// extra ground area beyond city boundries 
 	float margin = 20.0f;
@@ -169,7 +190,7 @@ while (!glfwWindowShouldClose(window))
 	float halfH = cityR + margin;
 
 	// center ground on camera position 
-	glm::vec2 centerXZ(roadParams.cityCenter.x, roadParams.cityCenter.y);
+	//glm::vec2 centerXZ(roadParams.cityCenter.x, roadParams.cityCenter.y);
 
 	primitives.DrawGround(primShader, vp, centerXZ, halfW, halfH);
 

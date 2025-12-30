@@ -39,6 +39,7 @@ class Gui
     {
         return mEnable3D;
     }
+    bool _3DEnabled() const { return mEnable3D;}
     bool ShowGardens() const { return mShowGardens;}
     bool ShowLotDebug() const { return mShowLotDebug;}
     bool ShowSideWalks() const { return mShowSidewalks;}
