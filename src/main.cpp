@@ -87,6 +87,8 @@ int main(void)
 
 	//camera variables
 	Camera camera;
+	camera.Set3DEnabled(false, glm::vec2(0.0f, 0.0f), gui.GetCityRadius());
+
 
 	//road variables
 	bool showRoads = false;
@@ -157,6 +159,16 @@ while (!glfwWindowShouldClose(window))
 		prev3D = is3D;
 	}
 
+	// //reset camera
+	if (gui.ConsumeResetCamera())
+	{
+		camera.ResetViewToCity(centerXZ, cityR);
+	}
+
+
+
+
+
 	processInput(window);
 	viewPort_Setup(window);
 
@@ -168,14 +180,29 @@ while (!glfwWindowShouldClose(window))
 	int w, h;
 
 	camera.Update(dt);
+	// only rotate when in 3D mode
+	if (is3D)
+	{
+		bool rmbDown = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS;
+		double mx, my;
+		glfwGetCursorPos(window, &mx, &my);
+
+		camera.OnMouseMove(mx, my, rmbDown);
+		glfwSetInputMode(window, GLFW_CURSOR, rmbDown ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
+		camera.UpdateFly3D(window, dt);
+	}
+	else 
+	{
+		camera.UpdatePanXZ(window, dt);
+		camera.ApplyScrollZoom(gScrollY);
+		gScrollY = 0.0f;
+	}
+
+
 
 
 	glfwGetFramebufferSize(window, &w, &h);
 	float aspect = (h == 0) ? 1.0f : (float)w / (float)h;
-	camera.UpdatePanXZ(window, dt);
-	camera.ApplyScrollZoom(gScrollY);
-	gScrollY = 0.0f;
-
 	glm::mat4 vp = camera.GetVP(aspect);
 
 
@@ -188,9 +215,6 @@ while (!glfwWindowShouldClose(window))
 	// ground half extents based on city size
 	float halfW = cityR + margin;
 	float halfH = cityR + margin;
-
-	// center ground on camera position 
-	//glm::vec2 centerXZ(roadParams.cityCenter.x, roadParams.cityCenter.y);
 
 	primitives.DrawGround(primShader, vp, centerXZ, halfW, halfH);
 

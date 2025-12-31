@@ -15,6 +15,7 @@ class Gui
     bool mShowSidewalks = false;
     bool mShowGardens = false;
     bool mShowFootprints = false;
+    bool mWantsResetCamera = false;
     road::LotParams mLotParams;
     road::RoadParams mRoadParams;
     
@@ -44,10 +45,11 @@ class Gui
     bool ShowLotDebug() const { return mShowLotDebug;}
     bool ShowSideWalks() const { return mShowSidewalks;}
     bool ShowFootprints() const { return mShowFootprints;}
-    //bool ShowBlocks() const { return mShowBlocks;}
+    bool WantsResetCamera() const {return mWantsResetCamera;}
     bool WantsGenerate();
     bool WantsQuit();
 
+    bool ConsumeResetCamera();
     float GetCityRadius() const {return mRoadParams.cityRadius;}
     const road::LotParams& GetLotParams() const {return mLotParams; }
     const road::RoadParams& GetParams() const {return mRoadParams; }

@@ -172,6 +172,12 @@ void Gui::DrawGUI()
         uiLoopCloseRadius = d.loopCloseRadius;
     }
 
+    ImGui::SameLine();
+    if(ImGui::Button("Reset Camera"))
+    {
+        mWantsResetCamera = true;
+    }
+
     ImGui::Separator();
 
     ImGui::InputInt("Seed", &uiSeed);
@@ -296,5 +302,12 @@ bool Gui::WantsQuit()
 {
     bool v = mQuitRequested;
     mQuitRequested = false;
+    return v;
+}
+
+bool Gui::ConsumeResetCamera()
+{
+    bool v = mWantsResetCamera;
+    mWantsResetCamera = false;
     return v;
 }
