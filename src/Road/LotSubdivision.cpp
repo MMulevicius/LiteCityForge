@@ -4,9 +4,15 @@
 #include <cmath>
 #include <random>
 #include <unordered_map>
+#include <iostream>
 
 namespace road
 {
+    static bool gDebugLotFloors = true;   // set false to disable
+    static int  gDebugPrinted   = 0;
+    static int  gDebugPrintMax  = 40;     // print first N lots only
+
+
     static glm::vec2 CentroidQuad(const std::vector<glm::vec2>& p)
     {
         return 0.25f * (p[0] + p[1] + p[2] + p[3]);
@@ -23,6 +29,13 @@ namespace road
     {
         return a + (b - a) * t;
     }
+
+    static float SmoothStep01(float t)
+    {
+        t = Clamp01(t);
+        return t * t * (3.0f - 2.0f * t);
+    }
+
 
     static float Length(const glm::vec2& v)
     {
@@ -105,12 +118,90 @@ namespace road
 
     // zone-based multipliers
     float zMulFront = 1.0f, zMulSide = 1.0f, zMulBack = 1.0f;
-    switch (lot.zone)
+    
+    auto randInt = [&](int lo, int hi)
     {
-        case LotZone::Urban:    zMulFront = 0.75f; zMulSide = 0.75f; zMulBack = 0.75f; break;
-        case LotZone::Suburban: zMulFront = 1.00f; zMulSide = 1.00f; zMulBack = 1.00f; break;
-        case LotZone::Rural:    zMulFront = 1.25f; zMulSide = 1.15f; zMulBack = 1.25f; break;
+        if (hi < lo) std::swap(lo, hi);
+        std::uniform_int_distribution<int> d(lo, hi);
+        return d(rng);
+    };
+
+    // Floors / height logic
+    if (params.useContinuousHeight)
+    {
+        // Blend two segments:
+        //  [0..0.5] edge -> mid, [0.5..1] mid -> centre
+        const float u = Clamp01(lot.urbanScore);
+
+        float fMin = 1.0f;
+        float fMax = 1.0f;
+
+        const float pivot = 0.35f;
+
+        if (u < pivot)
+        {
+            const float t = SmoothStep01(u / pivot);
+            fMin = Lerp((float)params.floorsEdgeMin, (float)params.floorsMidMin, t);
+            fMax = Lerp((float)params.floorsEdgeMax, (float)params.floorsMidMax, t);
+        }
+        else
+        {
+            const float t = SmoothStep01((u - pivot) / (1.0f - pivot));
+            fMin = Lerp((float)params.floorsMidMin, (float)params.floorsCenterMin, t);
+            fMax = Lerp((float)params.floorsMidMax, (float)params.floorsCenterMax, t);
+        }
+
+
+        // Apply global-urbanization height scaling.
+        // (Ensures lowering urbanization makes buildings smaller even at the centre.)
+        const float g = Clamp01(params.globalUrbanization);
+        const float scale = Lerp(params.minHeightScaleAtZeroUrbanization, 1.0f, g);
+
+        fMin = std::max(1.0f, std::round(fMin * Lerp(0.60f, 1.0f, g)));
+        fMax = std::max(fMin, std::round(fMax * scale));
+
+        int iMin = (int)fMin;
+        int iMax = (int)fMax;
+
+        // floorsRandomness = 1 -> random in [iMin..iMax]
+        // floorsRandomness = 0 -> always pick iMax
+        const float r = Clamp01(params.floorsRandomness);
+        if (r <= 0.001f)
+        {
+            lot.floors = iMax;
+        }
+        else
+        {
+            // Shrink randomness window as r decreases (biased towards upper end)
+            const int span = std::max(0, iMax - iMin);
+            const int shrunkSpan = (int)std::round(span * r);
+            const int lo = iMax - shrunkSpan;
+            lot.floors = randInt(lo, iMax);
+        }
     }
+    else
+    {
+        // Legacy zone-bucketed floor ranges
+        switch (lot.zone)
+        {
+            case LotZone::Urban:    lot.floors = randInt(params.floorsUrbanMin, params.floorsUrbanMax); break;
+            case LotZone::Suburban: lot.floors = randInt(params.floorsSuburbanMin, params.floorsSuburbanMax); break;
+            case LotZone::Rural:    lot.floors = randInt(params.floorsRuralMin, params.floorsRuralMax); break;
+        }
+    }
+    if (gDebugLotFloors && gDebugPrinted < gDebugPrintMax)
+    {
+        std::cout
+            << "[LOT] id=" << lot.lotId
+            << " zone=" << (int)lot.zone
+            << " urbanScore=" << lot.urbanScore
+            << " globalUrb=" << params.globalUrbanization
+            << " floors=" << lot.floors
+            << "\n";
+        gDebugPrinted++;
+    }
+
+
 
     // small random jitter to avoid identical shapes
     std::uniform_real_distribution<float> j(-params.buildingSetBackJitter, params.buildingSetBackJitter);
@@ -166,19 +257,8 @@ namespace road
         lot.coverage = Clamp01(fpArea / std::max(lotArea, 1e-6f));
     }
 
-    auto randInt = [&](int lo, int hi)
-    {
-        if (hi < lo) std::swap(lo, hi);
-        std::uniform_int_distribution<int> d(lo, hi);
-        return d(rng);
-    };
 
-    switch (lot.zone)
-    {
-        case LotZone::Urban:    lot.floors = randInt(params.floorsUrbanMin, params.floorsUrbanMax); break;
-        case LotZone::Suburban: lot.floors = randInt(params.floorsSuburbanMin, params.floorsSuburbanMax); break;
-        case LotZone::Rural:    lot.floors = randInt(params.floorsRuralMin, params.floorsRuralMax); break;
-    }
+
 
     lot.footprint = { p0, p1, p2, p3 };
     EnsureCCW(lot.footprint);

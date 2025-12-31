@@ -12,6 +12,7 @@
 #include "Road/LotParams.h"
 #include "Road/LotTypes.h"
 #include "Road/SideWalkGenerator.h"
+#include "Road/BuildingRenderer.h"
 #include <GLFW/glfw3.h>
 #include <iostream>
 #include <gl2d/gl2d.h>
@@ -25,6 +26,9 @@
 #include "backends/imgui_impl_glfw.h"
 #include "backends/imgui_impl_opengl3.h"
 #include "imguiThemes.h"
+
+
+
 
 
 //global Y axis variable for zooming in/out
@@ -117,6 +121,10 @@ int main(void)
 	road::LineRenderer footprintLines;
 	std::vector<glm::vec3> footprintLineVerts;
 
+	//building mesh variable
+	road::BuildingRenderer buildingMesh;
+	std::vector<glm::vec3> buildingTriVerts;
+
 	
 
 	Shader primShader("../include/basic.vert", "../include/basic.frag");
@@ -124,7 +132,8 @@ int main(void)
 
 	if (!highwayLines.Initialize_Road() || !streetLines.Initialize_Road() || 
 		!lotLines.Initialize_Road() || !sidewalkLines.Initialize_Road()
-		|| !gardenLines.Initialize_Road() || !footprintLines.Initialize_Road())
+		|| !gardenLines.Initialize_Road() || !footprintLines.Initialize_Road()
+		|| !buildingMesh.Initialize())
 	{
 		std::cout << "Failed to init LineRenderer for highways/streets/lots/roads/garden/footprints\n";
 	}
@@ -164,14 +173,6 @@ while (!glfwWindowShouldClose(window))
 	{
 		camera.ResetViewToCity(centerXZ, cityR);
 	}
-
-
-
-
-
-	processInput(window);
-	viewPort_Setup(window);
-
 	// camera  and ground adjustment
 	static float last = (float)glfwGetTime();
 	float now = (float)glfwGetTime();
@@ -179,10 +180,25 @@ while (!glfwWindowShouldClose(window))
 	last = now;
 	int w, h;
 
+	glfwGetFramebufferSize(window, &w, &h);
+	float aspect = (h == 0) ? 1.0f : (float)w / (float)h;
+	glm::mat4 vp = camera.GetVP(aspect);
+
+
+	processInput(window);
+	viewPort_Setup(window);
+
+
+
 	camera.Update(dt);
 	// only rotate when in 3D mode
 	if (is3D)
 	{
+		glDisable(GL_CULL_FACE); 
+		lineShader.use();
+		glUniform3f(glGetUniformLocation(lineShader.ID, "uColor"), 0.75f, 0.75f, 0.78f);
+		buildingMesh.Draw(lineShader, vp);
+
 		bool rmbDown = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS;
 		double mx, my;
 		glfwGetCursorPos(window, &mx, &my);
@@ -201,9 +217,7 @@ while (!glfwWindowShouldClose(window))
 
 
 
-	glfwGetFramebufferSize(window, &w, &h);
-	float aspect = (h == 0) ? 1.0f : (float)w / (float)h;
-	glm::mat4 vp = camera.GetVP(aspect);
+
 
 
 
@@ -375,10 +389,19 @@ while (!glfwWindowShouldClose(window))
 				<< " (threshold=" << lotParams.minLotAreaForGarden << ")\n";
 
 
+		const float baseY = 0.03f;
+		const float floorH = 0.35f;
+
+
+
 		road::BuildLotLineVerts(lots, lotLineVerts, 0.02f);
 		road::BuildSidewalkLineVerts(roadNet, roadParams, sidewalkLineVerts, 0.06f);
 		road::BuildGardenLineVerts(lots, gardenLineVerts, 0.021f);
 		road::BuildFootprintLineVerts(lots, footprintLineVerts, 0.022f);
+		road::BuildBuildingTriVerts(lots, buildingTriVerts, baseY, floorH);
+
+	
+		std::cout << "Building tri verts: " << buildingTriVerts.size() << "\n";
 
 
 		highwayLines.Upload(highwayVerts);
@@ -387,6 +410,8 @@ while (!glfwWindowShouldClose(window))
 		sidewalkLines.Upload(sidewalkLineVerts);
 		gardenLines.Upload(gardenLineVerts);
 		footprintLines.Upload(footprintLineVerts);
+		buildingMesh.Upload(buildingTriVerts);
+
 
 		std::cout << "Lots count: " << lots.lots.size() << "\n";
 		std::cout << "Lot verts: " << lotLineVerts.size() << "\n";
@@ -415,6 +440,7 @@ while (!glfwWindowShouldClose(window))
 	sidewalkLines.Shutdown_Road();
 	gardenLines.Shutdown_Road();
 	footprintLines.Shutdown_Road();
+	buildingMesh.Shutdown();
 	gui.ShutdownGUI();
 	glfwDestroyWindow(window);
 	glfwTerminate();

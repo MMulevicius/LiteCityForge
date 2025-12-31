@@ -82,6 +82,23 @@ namespace road
         int floorsRuralMin = 1;
         int floorsRuralMax = 2;
 
+        //continues heights based on urbanization level
+        bool useContinuousHeight = true;
+
+        //rural
+        int floorsEdgeMin = 1;
+        int floorsEdgeMax = 2;
+        //sub-urban
+        int floorsMidMin = 2;
+        int floorsMidMax = 6;
+        //urban
+        int floorsCenterMin = 12;
+        int floorsCenterMax = 20;
+
+        float floorsRandomness = 0.35f;
+        float minHeightScaleAtZeroUrbanization = 0.35f;
+
+
 
     };
 
