@@ -5,14 +5,14 @@ namespace road
 {
     struct LotParams
     {
-        //Road widths
+        //road widths
         float streetHalfWidth = 0.35f;
         float highwayHalfWidth = 0.60f;
 
-        // gap between road edge and lot start
+        //gap between road edge and lot start
         float lotSetBackFromRoad = 0.25f;
 
-        // how deep the lot goes away from the road
+        //how deep the lot goes away from the road
         float lotDepth = 4.0f;
 
         //extra spacing between lots

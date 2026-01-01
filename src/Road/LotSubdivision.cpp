@@ -8,9 +8,9 @@
 
 namespace road
 {
-    static bool gDebugLotFloors = true;   // set false to disable
+    static bool gDebugLotFloors = true; 
     static int  gDebugPrinted   = 0;
-    static int  gDebugPrintMax  = 40;     // print first N lots only
+    static int  gDebugPrintMax  = 40;
 
 
     static glm::vec2 CentroidQuad(const std::vector<glm::vec2>& p)
@@ -126,11 +126,10 @@ namespace road
         return d(rng);
     };
 
-    // Floors / height logic
+    // floors / height logic
     if (params.useContinuousHeight)
     {
-        // Blend two segments:
-        //  [0..0.5] edge -> mid, [0.5..1] mid -> centre
+        // blend two segments: [0..0.5] edge -> mid, [0.5..1] mid -> centre
         const float u = Clamp01(lot.urbanScore);
 
         float fMin = 1.0f;
@@ -152,8 +151,7 @@ namespace road
         }
 
 
-        // Apply global-urbanization height scaling.
-        // (Ensures lowering urbanization makes buildings smaller even at the centre.)
+        // apply global-urbanization height scaling.
         const float g = Clamp01(params.globalUrbanization);
         const float scale = Lerp(params.minHeightScaleAtZeroUrbanization, 1.0f, g);
 
@@ -163,8 +161,6 @@ namespace road
         int iMin = (int)fMin;
         int iMax = (int)fMax;
 
-        // floorsRandomness = 1 -> random in [iMin..iMax]
-        // floorsRandomness = 0 -> always pick iMax
         const float r = Clamp01(params.floorsRandomness);
         if (r <= 0.001f)
         {
@@ -172,7 +168,7 @@ namespace road
         }
         else
         {
-            // Shrink randomness window as r decreases (biased towards upper end)
+            // shrink randomness window as r decreases (biased towards upper end)
             const int span = std::max(0, iMax - iMin);
             const int shrunkSpan = (int)std::round(span * r);
             const int lo = iMax - shrunkSpan;
@@ -181,7 +177,7 @@ namespace road
     }
     else
     {
-        // Legacy zone-bucketed floor ranges
+        // legacy zone-bucketed floor ranges
         switch (lot.zone)
         {
             case LotZone::Urban:    lot.floors = randInt(params.floorsUrbanMin, params.floorsUrbanMax); break;

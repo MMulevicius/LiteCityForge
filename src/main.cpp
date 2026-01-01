@@ -14,6 +14,7 @@
 #include "Road/SideWalkGenerator.h"
 #include "Road/BuildingRenderer.h"
 #include "Road/RoadSurfaceGenerator.h"
+#include "Export/CityExporter.h"
 #include <GLFW/glfw3.h>
 #include <iostream>
 #include <gl2d/gl2d.h>
@@ -22,6 +23,7 @@
 #include <stb_image/stb_image.h>
 #include "Gui.h"
 #include <iostream>
+#include <sstream>
 
 #include "imgui.h"
 #include "backends/imgui_impl_glfw.h"
@@ -258,6 +260,28 @@ while (!glfwWindowShouldClose(window))
 
 	primitives.DrawGround(primShader, vp, centerXZ, halfW, halfH);
 
+	if (gui.WantsExportOBJ())
+    {
+        // build export input from your existing buffers
+        export3d::CityExportInput ex;
+        ex.centerXZ = centerXZ;
+        ex.halfW = halfW;
+        ex.halfH = halfH;
+
+        ex.roadHighwayTris = roadHighwayTris;
+        ex.roadStreetTris  = roadStreetTris;
+        ex.sidewalkTris    = sidewalkTris;
+        ex.buildingTris    = buildingTriVerts;
+
+        // make filename
+        std::stringstream ss;
+        ss << gui.GetExportBaseName() << "_seed" << roadParams.seed;
+
+        std::string outPath;
+        bool ok = export3d::CityExporter::ExportOBJ("/home/matas/Uni/Final_Project/LiteCityForge/assets/models/", ss.str(), ex, &outPath);
+
+        std::cout << (ok ? "[EXPORT] Wrote: " : "[EXPORT] Failed: ") << outPath << "\n";
+    }
 
 	//generate Roads
 	if (showRoads)

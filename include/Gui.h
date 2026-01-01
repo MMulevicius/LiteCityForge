@@ -16,6 +16,8 @@ class Gui
     bool mShowGardens = false;
     bool mShowFootprints = false;
     bool mWantsResetCamera = false;
+    bool mExportRequested = false;
+    char mExportBaseName[64] = "city";
     road::LotParams mLotParams;
     road::RoadParams mRoadParams;
     
@@ -47,10 +49,12 @@ class Gui
     bool ShowFootprints() const { return mShowFootprints;}
     bool WantsResetCamera() const {return mWantsResetCamera;}
     bool WantsGenerate();
+    bool WantsExportOBJ();
     bool WantsQuit();
 
     bool ConsumeResetCamera();
     float GetCityRadius() const {return mRoadParams.cityRadius;}
     const road::LotParams& GetLotParams() const {return mLotParams; }
     const road::RoadParams& GetParams() const {return mRoadParams; }
+    const char* GetExportBaseName() const { return mExportBaseName; }
 };

@@ -180,6 +180,15 @@ void Gui::DrawGUI()
 
     ImGui::Separator();
 
+    ImGui::InputText("Export Name", mExportBaseName, IM_ARRAYSIZE(mExportBaseName));
+
+    if (ImGui::Button("Export OBJ"))
+    {
+        mExportRequested = true;
+    }
+
+    ImGui::Separator();
+
     ImGui::InputInt("Seed", &uiSeed);
     ImGui::SameLine();
     if (ImGui::Button("Randomize"))
@@ -311,3 +320,11 @@ bool Gui::ConsumeResetCamera()
     mWantsResetCamera = false;
     return v;
 }
+
+bool Gui::WantsExportOBJ()
+{
+    bool v = mExportRequested;
+    mExportRequested = false;
+    return v;
+}
+
