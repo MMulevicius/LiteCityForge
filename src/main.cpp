@@ -13,6 +13,7 @@
 #include "Road/LotTypes.h"
 #include "Road/SideWalkGenerator.h"
 #include "Road/BuildingRenderer.h"
+#include "Road/RoadSurfaceGenerator.h"
 #include <GLFW/glfw3.h>
 #include <iostream>
 #include <gl2d/gl2d.h>
@@ -125,6 +126,15 @@ int main(void)
 	road::BuildingRenderer buildingMesh;
 	std::vector<glm::vec3> buildingTriVerts;
 
+	//roads and sidewalks mesh variables
+	road::BuildingRenderer roadMeshHighway;
+	road::BuildingRenderer roadMeshStreet;
+	road::BuildingRenderer sidewalkMesh;
+
+	std::vector<glm::vec3> roadHighwayTris;
+	std::vector<glm::vec3> roadStreetTris;
+	std::vector<glm::vec3> sidewalkTris;
+
 	
 
 	Shader primShader("../include/basic.vert", "../include/basic.frag");
@@ -133,7 +143,8 @@ int main(void)
 	if (!highwayLines.Initialize_Road() || !streetLines.Initialize_Road() || 
 		!lotLines.Initialize_Road() || !sidewalkLines.Initialize_Road()
 		|| !gardenLines.Initialize_Road() || !footprintLines.Initialize_Road()
-		|| !buildingMesh.Initialize())
+		|| !buildingMesh.Initialize() || !roadMeshHighway.Initialize() || !roadMeshStreet.Initialize()
+		|| !sidewalkMesh.Initialize())
 	{
 		std::cout << "Failed to init LineRenderer for highways/streets/lots/roads/garden/footprints\n";
 	}
@@ -196,9 +207,24 @@ while (!glfwWindowShouldClose(window))
 	{
 		glDisable(GL_CULL_FACE); 
 		lineShader.use();
+
+		//streets
+		glUniform3f(glGetUniformLocation(lineShader.ID, "uColor"), 0.12f, 0.12f, 0.12f);
+    	roadMeshStreet.Draw(lineShader, vp);
+
+		//highways
+		glUniform3f(glGetUniformLocation(lineShader.ID, "uColor"), 0.07f, 0.07f, 0.07f);
+    	roadMeshHighway.Draw(lineShader, vp);
+
+		//sidewalks
+		glUniform3f(glGetUniformLocation(lineShader.ID, "uColor"), 0.70f, 0.70f, 0.70f);
+    	sidewalkMesh.Draw(lineShader, vp);
+
+		//buildings
 		glUniform3f(glGetUniformLocation(lineShader.ID, "uColor"), 0.75f, 0.75f, 0.78f);
 		buildingMesh.Draw(lineShader, vp);
 
+		//camera controls
 		bool rmbDown = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS;
 		double mx, my;
 		glfwGetCursorPos(window, &mx, &my);
@@ -296,6 +322,7 @@ while (!glfwWindowShouldClose(window))
 	if(gui.WantsGenerate())
 	{
 		roadParams = gui.GetParams();
+		
 
 		std::cout
 		<< "[GUI] cityRadius=" << roadParams.cityRadius
@@ -308,6 +335,38 @@ while (!glfwWindowShouldClose(window))
 		std::vector<glm::vec3> streetVerts;
 
 		roadNet = roadGen.Generate(roadParams);
+
+		// build 3D road + sidewalk slabs 
+		const float roadBaseY = 0.02f;
+		const float roadH     = 0.02f;
+
+		// sidewalk sits above road
+		const float sidewalkBaseY = roadBaseY + roadH;
+		const float sidewalkH     = 0.08f;
+
+		//trim
+		const float trimExtra  = 0.0f;
+
+		road::BuildRoadSurfaceTriVerts(roadNet, roadParams,
+									roadHighwayTris, roadStreetTris,
+									roadBaseY, roadH);
+
+		road::BuildSidewalkSurfaceTriVerts(roadNet, roadParams,
+										sidewalkTris,
+										sidewalkBaseY, sidewalkH,
+										trimExtra, false);
+
+		roadMeshHighway.Upload(roadHighwayTris);
+		roadMeshStreet.Upload(roadStreetTris);
+		sidewalkMesh.Upload(sidewalkTris);
+
+		std::cout << "Road tris => highway: " << roadHighwayTris.size()
+				<< " street: " << roadStreetTris.size()
+				<< " sidewalks: " << sidewalkTris.size() << "\n";
+
+
+
+
 		showRoads = true;
 
 		highwayVerts.clear();

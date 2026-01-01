@@ -5,64 +5,67 @@
 
 #include <algorithm>
 #include <cmath>
+#include <unordered_map>
 #include <vector>
 
 namespace road
 {
-    static inline float Cross2(const glm::vec2& a, const glm::vec2& b)
-    {
-        return a.x * b.y - a.y * b.x;
-    }
-
-    static inline void AddLine(std::vector<glm::vec3>& v, const glm::vec3& a, const glm::vec3& b)
-    {
-        v.push_back(a);
-        v.push_back(b);
-    }
+    static inline float Dot(const glm::vec2& a, const glm::vec2& b) { return a.x * b.x + a.y * b.y; }
+    static inline float LenSq(const glm::vec2& v) { return Dot(v, v); }
 
     static inline glm::vec2 Perp(const glm::vec2& d) { return glm::vec2(-d.y, d.x); }
 
     static inline glm::vec2 NormalizeSafe(const glm::vec2& v)
     {
-        const float l2 = glm::dot(v, v);
+        float l2 = LenSq(v);
         if (l2 < 1e-8f) return glm::vec2(0.0f);
         return v * (1.0f / std::sqrt(l2));
     }
 
-    static inline float Abs(float x) { return x < 0.0f ? -x : x; }
-
-    static bool IntersectLines(const glm::vec2& p0, const glm::vec2& d0,
-                               const glm::vec2& p1, const glm::vec2& d1,
-                               glm::vec2& outP)
+    static inline void AddLine(std::vector<glm::vec3>& out, const glm::vec2& a, const glm::vec2& b, float y)
     {
-        const float denom = Cross2(d0, d1);
-        if (Abs(denom) < 1e-6f) return false;
-        const glm::vec2 r = p1 - p0;
-        const float t = Cross2(r, d1) / denom;
-        outP = p0 + d0 * t;
+        out.emplace_back(a.x, y, a.y);
+        out.emplace_back(b.x, y, b.y);
+    }
+
+    struct Line2
+    {
+        glm::vec2 p;
+        glm::vec2 dir;
+    };
+
+    static bool IntersectLines(const Line2& a, const Line2& b, glm::vec2& out)
+    {
+        float det = a.dir.x * b.dir.y - a.dir.y * b.dir.x;
+        if (std::fabs(det) < 1e-6f) return false;
+
+        glm::vec2 r = b.p - a.p;
+        float t = (r.x * b.dir.y - r.y * b.dir.x) / det;
+        out = a.p + a.dir * t;
         return true;
     }
 
-    static inline float SidewalkOffsetFor(const Segment& seg, const RoadParams& params)
+    static glm::vec2 ClampMiter(const glm::vec2& p, const glm::vec2& center, float maxDist)
     {
-        const float halfW = (seg.type == RoadType::Highway) ? params.highwayHalfWidth : params.streetHalfWidth;
-        return halfW + params.sidewalkGap + (params.sidewalkWidth * 0.5f);
+        glm::vec2 v = p - center;
+        float d2 = LenSq(v);
+        if (d2 <= maxDist * maxDist) return p;
+
+        float d = std::sqrt(std::max(d2, 1e-8f));
+        return center + v * (maxDist / d);
     }
 
-    static inline float SidewalkTrimFor(const Segment& seg, const RoadParams& params)
+    static inline float RoadHalfW(RoadType t, const RoadParams& p)
     {
-        // trim from node so intersections (degree 3/4)
-        const float halfW = (seg.type == RoadType::Highway) ? params.highwayHalfWidth : params.streetHalfWidth;
-        return (halfW + params.sidewalkGap + params.sidewalkWidth) * 0.75f;
+        return (t == RoadType::Highway) ? p.highwayHalfWidth : p.streetHalfWidth;
     }
 
-    struct SegSW
+    struct JoinLR
     {
-        glm::vec2 L0, L1; 
-        glm::vec2 R0, R1; 
-        glm::vec2 d;      
-        glm::vec2 n;      
-        float off = 0.0f; 
+        glm::vec2 L; 
+        glm::vec2 R; 
+        bool hasL = false;
+        bool hasR = false;
     };
 
     void BuildSidewalkLineVerts(const RoadNetwork& net, const RoadParams& params,
@@ -72,373 +75,175 @@ namespace road
 
         const auto& nodes = net.Nodes();
         const auto& segs  = net.Segments();
+        if (nodes.empty() || segs.empty()) return;
 
-        if (segs.empty() || nodes.empty())
-            return;
+        // incident segments per node + degree
+        std::vector<std::vector<size_t>> incident(nodes.size());
+        std::vector<int> degree(nodes.size(), 0);
 
-        outSidewalks.reserve(segs.size() * 6);
-
-        // build degrees + incidence lists
-        std::vector<int> degree(nodes.size() + 1, 0);
-        std::vector<std::vector<int>> incident(nodes.size() + 1);
-
-        incident.shrink_to_fit();
-        incident.resize(nodes.size() + 1);
-
-        for (int i = 0; i < (int)segs.size(); ++i)
+        for (size_t si = 0; si < segs.size(); ++si)
         {
-            const int a = (int)segs[i].a;
-            const int b = (int)segs[i].b;
-            if (a >= 1 && a <= (int)nodes.size()) { degree[a]++; incident[a].push_back(i); }
-            if (b >= 1 && b <= (int)nodes.size()) { degree[b]++; incident[b].push_back(i); }
+            const auto& s = segs[si];
+            if (s.a > 0 && (size_t)s.a <= nodes.size())
+            {
+                incident[(size_t)s.a - 1].push_back(si);
+                degree[(size_t)s.a - 1]++;
+            }
+            if (s.b > 0 && (size_t)s.b <= nodes.size())
+            {
+                incident[(size_t)s.b - 1].push_back(si);
+                degree[(size_t)s.b - 1]++;
+            }
         }
 
-        // precompute per-segment sidewalk endpoints (with trim except for degree==2 ends)
-        std::vector<SegSW> sw(segs.size());
+        // joins[nodeIdx][segId] -> JoinLR
+        std::vector<std::unordered_map<SegId, JoinLR>> joins(nodes.size());
 
-        for (int i = 0; i < (int)segs.size(); ++i)
+        // miter clamp multiplier (bigger = sharper corners, smaller = safer)
+        const float miterLimit = 4.0f;
+
+        // build junction joins
+        for (size_t ni = 0; ni < nodes.size(); ++ni)
         {
-            const Segment& s = segs[i];
+            auto& inc = incident[ni];
+            if (inc.size() < 2) continue;
 
-            const glm::vec2 A = nodes.at((size_t)s.a - 1).pos;
-            const glm::vec2 B = nodes.at((size_t)s.b - 1).pos;
+            const glm::vec2 P = nodes[ni].pos;
 
-            glm::vec2 d = NormalizeSafe(B - A);
-            if (glm::dot(d, d) < 1e-8f) continue;
-
-            glm::vec2 n = NormalizeSafe(Perp(d));
-
-            const float off  = SidewalkOffsetFor(s, params);
-            const float trim = SidewalkTrimFor(s, params);
-
-            // don’t trim at degree==2 endpoints
-            const float trimA = (degree[(int)s.a] <= 2) ? 0.0f : trim;
-            const float trimB = (degree[(int)s.b] <= 2) ? 0.0f : trim;
-
-            const glm::vec2 A2 = A + d * trimA;
-            const glm::vec2 B2 = B - d * trimB;
-
-            // if a segment becomes too short after trim, skip it.
-            if (glm::dot(B2 - A2, B2 - A2) < 1e-6f) continue;
-
-            SegSW& out = sw[i];
-            out.d   = d;
-            out.n   = n;
-            out.off = off;
-
-            out.L0 = A2 + n * off;
-            out.L1 = B2 + n * off;
-            out.R0 = A2 - n * off;
-            out.R1 = B2 - n * off;
-        }
-
-        // miter-join ONLY degree==2 nodes
-        const float miterLimit = 6.0f; 
-
-        for (int nodeId = 1; nodeId <= (int)nodes.size(); ++nodeId)
-        {
-            if (degree[nodeId] != 2) continue;
-            const auto& inc = incident[nodeId];
-            if (inc.size() != 2) continue;
-
-            const int s0i = inc[0];
-            const int s1i = inc[1];
-            const Segment& s0 = segs[s0i];
-            const Segment& s1 = segs[s1i];
-
-            const glm::vec2 C = nodes.at((size_t)nodeId - 1).pos;
-
-            // segment 0 geometry
-            const glm::vec2 A0 = nodes.at((size_t)s0.a - 1).pos;
-            const glm::vec2 B0 = nodes.at((size_t)s0.b - 1).pos;
-            const glm::vec2 d0 = NormalizeSafe(B0 - A0);
-            if (glm::dot(d0, d0) < 1e-8f) continue;
-            const glm::vec2 n0 = NormalizeSafe(Perp(d0));
-            const float off0    = SidewalkOffsetFor(s0, params);
-
-            // segment 1 geometry
-            const glm::vec2 A1 = nodes.at((size_t)s1.a - 1).pos;
-            const glm::vec2 B1 = nodes.at((size_t)s1.b - 1).pos;
-            const glm::vec2 d1 = NormalizeSafe(B1 - A1);
-            if (glm::dot(d1, d1) < 1e-8f) continue;
-            const glm::vec2 n1 = NormalizeSafe(Perp(d1));
-            const float off1    = SidewalkOffsetFor(s1, params);
-
-            // directions OUT of the node along each segment
-            const glm::vec2 dir0 = ((int)s0.a == nodeId) ? d0 : -d0;
-            const glm::vec2 dir1 = ((int)s1.a == nodeId) ? d1 : -d1;
-
-            const float straightDot = glm::dot(dir0, dir1);
-            // ~170°-180°
-            if (straightDot < -0.985f) 
-                continue;
-
-            // two candidate offset vectors per segment at the node
-            const glm::vec2 v0a =  n0 * off0;
-            const glm::vec2 v0b = -n0 * off0;
-            const glm::vec2 v1a =  n1 * off1;
-            const glm::vec2 v1b = -n1 * off1;
-
-            const float dAA = glm::dot(NormalizeSafe(v0a), NormalizeSafe(v1a));
-            const float dAB = glm::dot(NormalizeSafe(v0a), NormalizeSafe(v1b));
-
-            // if v0a matches v1a better => (v0a<->v1a) and (v0b<->v1b)
-            // else => (v0a<->v1b) and (v0b<->v1a)
-            glm::vec2 p0_1, p1_1, p0_2, p1_2; 
-            glm::vec2 o0_1, o1_1, o0_2, o1_2; 
-
-            if (dAA >= dAB)
+            struct Entry
             {
-                o0_1 = v0a; o1_1 = v1a;
-                o0_2 = v0b; o1_2 = v1b;
-            }
-            else
-            {
-                o0_1 = v0a; o1_1 = v1b;
-                o0_2 = v0b; o1_2 = v1a;
-            }
-
-            // intersect the offset lines for each matched pair
-            glm::vec2 M1, M2;
-            bool ok1 = IntersectLines(C + o0_1, dir0, C + o1_1, dir1, M1);
-            bool ok2 = IntersectLines(C + o0_2, dir0, C + o1_2, dir1, M2);
-
-            // clamp crazy miters (acute angles)
-            auto clampMiter = [&](glm::vec2& M, const glm::vec2& oA, const glm::vec2& oB, float offMax)
-            {
-                const float dist = std::sqrt(glm::dot(M - C, M - C));
-                if (dist > offMax * miterLimit)
-                {
-                    // fallback: average of the two offset points 
-                    M = C + (oA + oB) * 0.5f;
-                }
+                SegId segId;
+                RoadType type;
+                glm::vec2 dirOut;
+                float ang;
+                float off; 
             };
 
-            const float offMax1 = std::max(std::sqrt(glm::dot(o0_1, o0_1)), std::sqrt(glm::dot(o1_1, o1_1)));
-            const float offMax2 = std::max(std::sqrt(glm::dot(o0_2, o0_2)), std::sqrt(glm::dot(o1_2, o1_2)));
+            std::vector<Entry> E;
+            E.reserve(inc.size());
 
-            if (ok1) clampMiter(M1, o0_1, o1_1, offMax1);
-            if (ok2) clampMiter(M2, o0_2, o1_2, offMax2);
-
-            // assign the miter points back into the correct endpoint slots of each segment.
-            auto applyToSegmentAtNode = [&](int segIndex, const Segment& s, const glm::vec2& nSeg, float offSeg,
-                                            const glm::vec2& oWanted, const glm::vec2& M)
+            for (size_t si : inc)
             {
-                // determine if the matched offset for this seg is its +n side (left) or -n side (right)
-                const float sign = glm::dot(NormalizeSafe(oWanted), NormalizeSafe(nSeg)) >= 0.0f ? +1.0f : -1.0f;
+                const auto& s = segs[si];
 
-                const bool atA = ((int)s.a == nodeId);
-                SegSW& out = sw[segIndex];
+                glm::vec2 A = nodes[(size_t)s.a - 1].pos;
+                glm::vec2 B = nodes[(size_t)s.b - 1].pos;
 
-                if (sign > 0.0f)
-                {
-                    // +n => Left side
-                    if (atA) out.L0 = M;
-                    else     out.L1 = M;
-                }
-                else
-                {
-                    // -n => Right side
-                    if (atA) out.R0 = M;
-                    else     out.R1 = M;
-                }
-            };
+                glm::vec2 d;
+                if ((size_t)s.a - 1 == ni) d = NormalizeSafe(B - A);
+                else                       d = NormalizeSafe(A - B);
 
-            if (ok1)
-            {
-                applyToSegmentAtNode(s0i, s0, n0, off0, o0_1, M1);
-                applyToSegmentAtNode(s1i, s1, n1, off1, o1_1, M1);
+                if (LenSq(d) < 1e-8f) continue;
+
+                float off = RoadHalfW(s.type, params) + params.sidewalkGap + params.sidewalkWidth * 0.5f;
+                float ang = std::atan2(d.y, d.x);
+                E.push_back({ s.id, s.type, d, ang, off });
             }
-            if (ok2)
+
+            if (E.size() < 2) continue;
+
+            std::sort(E.begin(), E.end(), [](const Entry& a, const Entry& b){ return a.ang < b.ang; });
+
+
+            const int k = (int)E.size();
+            for (int i = 0; i < k; ++i)
             {
-                applyToSegmentAtNode(s0i, s0, n0, off0, o0_2, M2);
-                applyToSegmentAtNode(s1i, s1, n1, off1, o1_2, M2);
+                const Entry& cur  = E[i];
+                const Entry& next = E[(i + 1) % k];
+
+                auto leftLine = [&](const Entry& e) -> Line2
+                {
+                    glm::vec2 n = NormalizeSafe(Perp(e.dirOut));
+                    return Line2{ P + n * e.off, e.dirOut };
+                };
+
+                auto rightLine = [&](const Entry& e) -> Line2
+                {
+                    glm::vec2 n = NormalizeSafe(Perp(e.dirOut));
+                    return Line2{ P - n * e.off, e.dirOut };
+                };
+
+                Line2 a = leftLine(cur);
+                Line2 b = rightLine(next);
+
+                glm::vec2 x;
+                if (!IntersectLines(a, b, x))
+                {
+                    // fallback: just use cur's left offset point
+                    x = a.p;
+                }
+
+                float clampDist = std::max(cur.off, next.off) * miterLimit;
+                x = ClampMiter(x, P, clampDist);
+
+                // cur gets left join at this node
+                {
+                    JoinLR& J = joins[ni][cur.segId];
+                    J.L = x;
+                    J.hasL = true;
+                }
+                // next gets right join at this node
+                {
+                    JoinLR& J = joins[ni][next.segId];
+                    J.R = x;
+                    J.hasR = true;
+                }
             }
         }
 
-        // emit segment sidewalk lines
-        for (int i = 0; i < (int)segs.size(); ++i)
+        // emit sidewalk centerlines per segment
+        outSidewalks.reserve(segs.size() * 8);
+
+        for (const auto& s : segs)
         {
-            const SegSW& s = sw[i];
+            const size_t ia = (size_t)s.a - 1;
+            const size_t ib = (size_t)s.b - 1;
 
-            // skip segments that never got valid geometry
-            if (glm::dot(s.d, s.d) < 1e-8f) continue;
+            const glm::vec2 A = nodes[ia].pos;
+            const glm::vec2 B = nodes[ib].pos;
 
-            AddLine(outSidewalks, glm::vec3(s.L0.x, y, s.L0.y), glm::vec3(s.L1.x, y, s.L1.y));
-            AddLine(outSidewalks, glm::vec3(s.R0.x, y, s.R0.y), glm::vec3(s.R1.x, y, s.R1.y));
-            
-        }
+            glm::vec2 dAB = NormalizeSafe(B - A);
+            if (LenSq(dAB) < 1e-8f) continue;
 
-        // T-junction (degree==3) bar joins
-        auto EndAtNode = [&](int segIndex, const Segment& seg, int nodeId, bool leftSide) -> glm::vec2
-        {
-            const SegSW& s = sw[segIndex];
-            const bool atA = ((int)seg.a == nodeId);
-            return leftSide ? (atA ? s.L0 : s.L1) : (atA ? s.R0 : s.R1);
-        };
+            glm::vec2 nAB = NormalizeSafe(Perp(dAB));
 
-        auto DirAwayFromNode = [&](const Segment& seg, int nodeId) -> glm::vec2
-        {
-            const glm::vec2 A = nodes.at((size_t)seg.a - 1).pos;
-            const glm::vec2 B = nodes.at((size_t)seg.b - 1).pos;
-            glm::vec2 d = NormalizeSafe(B - A);
-            if (glm::dot(d, d) < 1e-8f) return glm::vec2(0.0f);
-            return ((int)seg.a == nodeId) ? d : -d;
-        };
+            float off = RoadHalfW(s.type, params) + params.sidewalkGap + params.sidewalkWidth * 0.5f;
 
-        auto PickOnSide = [&](int segIndex, const Segment& seg, int nodeId,
-                            const glm::vec2& C, const glm::vec2& nRef, float signWanted) -> glm::vec2
-        {
-            // pick whichever of (L,R) lies more strongly on the requested side of nRef
-            glm::vec2 pL = EndAtNode(segIndex, seg, nodeId, true);
-            glm::vec2 pR = EndAtNode(segIndex, seg, nodeId, false);
+            // fallback endpoints if no join exists
+            glm::vec2 leftA  = A + nAB * off;
+            glm::vec2 rightA = A - nAB * off;
+            glm::vec2 leftB  = B + nAB * off;
+            glm::vec2 rightB = B - nAB * off;
 
-            float sL = glm::dot(pL - C, nRef);
-            float sR = glm::dot(pR - C, nRef);
-
-            bool okL = (signWanted > 0.0f) ? (sL >= 0.0f) : (sL <= 0.0f);
-            bool okR = (signWanted > 0.0f) ? (sR >= 0.0f) : (sR <= 0.0f);
-
-            if (okL && okR) return (Abs(sL) >= Abs(sR)) ? pL : pR;
-            if (okL) return pL;
-            if (okR) return pR;
-
-            // fallback: if both are barely on the other side due to precision, just pick the closer-to-side one
-            return (Abs(sL) >= Abs(sR)) ? pL : pR;
-        };
-
-        for (int nodeId = 1; nodeId <= (int)nodes.size(); ++nodeId)
-        {
-            if (degree[nodeId] != 3) continue;
-            const auto& inc = incident[nodeId];
-            if (inc.size() != 3) continue;
-
-            // find the two most opposite directions (the "bar" of the T)
-            int bestI = -1, bestJ = -1;
-            float bestDot = 1.0f;
-
-            for (int a = 0; a < 3; ++a)
+            // at node A: dirOut == +dAB, so L/R mapping is direct
             {
-                for (int b = a + 1; b < 3; ++b)
+                auto it = joins[ia].find(s.id);
+                if (it != joins[ia].end())
                 {
-                    const int siA = inc[a];
-                    const int siB = inc[b];
-                    const Segment& sA = segs[siA];
-                    const Segment& sB = segs[siB];
-
-                    glm::vec2 da = DirAwayFromNode(sA, nodeId);
-                    glm::vec2 db = DirAwayFromNode(sB, nodeId);
-                    if (glm::dot(da, da) < 1e-8f || glm::dot(db, db) < 1e-8f) continue;
-
-                    float dp = glm::dot(da, db); 
-                    if (dp < bestDot)
-                    {
-                        bestDot = dp;
-                        bestI = siA;
-                        bestJ = siB;
-                    }
+                    if (it->second.hasL) leftA  = it->second.L;
+                    if (it->second.hasR) rightA = it->second.R;
                 }
             }
 
-            // must actually be a "T bar" (reasonably opposite)
-            if (bestI < 0 || bestJ < 0) continue;
-            if (bestDot > -0.55f) continue;
-
-            const Segment& sI = segs[bestI];
-            const Segment& sJ = segs[bestJ];
-
-            const glm::vec2 C = nodes.at((size_t)nodeId - 1).pos;
-
-            // reference normal: "up/down" sides for the bar.
-            glm::vec2 barDir = DirAwayFromNode(sI, nodeId);
-            if (glm::dot(barDir, barDir) < 1e-8f) continue;
-            glm::vec2 nRef = NormalizeSafe(Perp(barDir));
-
-            glm::vec2 topI = PickOnSide(bestI, sI, nodeId, C, nRef, +1.0f);
-            glm::vec2 topJ = PickOnSide(bestJ, sJ, nodeId, C, nRef, +1.0f);
-            AddLine(outSidewalks, glm::vec3(topI.x, y, topI.y), glm::vec3(topJ.x, y, topJ.y));
-
-            glm::vec2 botI = PickOnSide(bestI, sI, nodeId, C, nRef, -1.0f);
-            glm::vec2 botJ = PickOnSide(bestJ, sJ, nodeId, C, nRef, -1.0f);
-            AddLine(outSidewalks, glm::vec3(botI.x, y, botI.y), glm::vec3(botJ.x, y, botJ.y));
-
-            int stemIdx = -1;
-            for (int k = 0; k < 3; ++k)
+            // at node B: node-local dirOut was -dAB, so left/right swap relative to A->B
             {
-                int si = inc[k];
-                if (si != bestI && si != bestJ)
+                auto it = joins[ib].find(s.id);
+                if (it != joins[ib].end())
                 {
-                    stemIdx = si;
-                    break;
-                }
-            }
-            if (stemIdx >= 0)
-            {
-                const Segment& stemSeg = segs[stemIdx];
-                glm::vec2 dirStem = DirAwayFromNode(stemSeg, nodeId);
-                if (glm::dot(dirStem, dirStem) > 1e-8f)
-                {
-                    // clear distance should be based on the biggest road at this node (intersection "radius")
-                    float maxHalfW = 0.0f;
-                    for (int k = 0; k < 3; ++k)
-                    {
-                        const Segment& ss = segs[inc[k]];
-                        const float hw = (ss.type == RoadType::Highway) ? params.highwayHalfWidth : params.streetHalfWidth;
-                        if (hw > maxHalfW) maxHalfW = hw;
-                    }
-
-                    // this is the distance from node along the stem where sidewalks should start 
-                    const float clear = (maxHalfW + params.sidewalkGap + params.sidewalkWidth) * 1.50f;
-
-                    glm::vec2 nStem = sw[stemIdx].n;
-
-                  
-                    if (glm::dot(sw[stemIdx].d, dirStem) < 0.0f)
-                        nStem = -nStem;
-
-                    const float     offStem = sw[stemIdx].off;  
-                    const bool atA          = ((int)stemSeg.a == nodeId);
-
-                    if (atA)
-                    {
-                        sw[stemIdx].L0 = (C + dirStem * clear) + nStem * offStem;
-                        sw[stemIdx].R0 = (C + dirStem * clear) - nStem * offStem;
-                    }
-                    else
-                    {
-                        sw[stemIdx].L1 = (C + dirStem * clear) + nStem * offStem;
-                        sw[stemIdx].R1 = (C + dirStem * clear) - nStem * offStem;
-                    }
-
+                    // swapped:
+                    if (it->second.hasL) rightB = it->second.L;
+                    if (it->second.hasR) leftB  = it->second.R;
                 }
             }
 
-        }
+            // two sidewalk centerlines
+            AddLine(outSidewalks, leftA,  leftB,  y);
+            AddLine(outSidewalks, rightA, rightB, y);
 
-        
-
-
-
-        // dead-end caps (degree==1)
-        for (int nodeId = 1; nodeId <= (int)nodes.size(); ++nodeId)
-        {
-            if (degree[nodeId] != 1) continue;
-            const auto& inc = incident[nodeId];
-            if (inc.size() != 1) continue;
-
-            const int si = inc[0];
-            const Segment& seg = segs[si];
-
-            const bool atA = ((int)seg.a == nodeId);
-            const SegSW& s = sw[si];
-
-            const glm::vec2 Pleft  = atA ? s.L0 : s.L1;
-            const glm::vec2 Pright = atA ? s.R0 : s.R1;
-
-            AddLine(outSidewalks,
-                    glm::vec3(Pleft.x,  y, Pleft.y),
-                    glm::vec3(Pright.x, y, Pright.y));
+            // dead-end caps (degree 1): connect left<->right at endpoint
+            if (degree[ia] == 1) AddLine(outSidewalks, leftA, rightA, y);
+            if (degree[ib] == 1) AddLine(outSidewalks, leftB, rightB, y);
         }
     }
 
-}
+} 
