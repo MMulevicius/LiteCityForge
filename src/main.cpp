@@ -244,13 +244,6 @@ while (!glfwWindowShouldClose(window))
 
 
 
-
-
-
-
-
-
-
 	// extra ground area beyond city boundries 
 	float margin = 20.0f;
 
@@ -260,28 +253,32 @@ while (!glfwWindowShouldClose(window))
 
 	primitives.DrawGround(primShader, vp, centerXZ, halfW, halfH);
 
-	if (gui.WantsExportOBJ())
-    {
-        // build export input from your existing buffers
-        export3d::CityExportInput ex;
-        ex.centerXZ = centerXZ;
-        ex.halfW = halfW;
-        ex.halfH = halfH;
+	std::string dir, base;
+	Gui::ExportFormat fmt;
 
-        ex.roadHighwayTris = roadHighwayTris;
-        ex.roadStreetTris  = roadStreetTris;
-        ex.sidewalkTris    = sidewalkTris;
-        ex.buildingTris    = buildingTriVerts;
+	if (gui.ConsumeExportRequest(dir, base, fmt))
+	{
+		export3d::CityExportInput ex;
+		ex.centerXZ = centerXZ;
+		ex.halfW = halfW;
+		ex.halfH = halfH;
 
-        // make filename
-        std::stringstream ss;
-        ss << gui.GetExportBaseName() << "_seed" << roadParams.seed;
+		ex.roadHighwayTris = roadHighwayTris;
+		ex.roadStreetTris  = roadStreetTris;
+		ex.sidewalkTris    = sidewalkTris;
+		ex.buildingTris    = buildingTriVerts;
 
-        std::string outPath;
-        bool ok = export3d::CityExporter::ExportOBJ("/home/matas/Uni/Final_Project/LiteCityForge/assets/models/", ss.str(), ex, &outPath);
+		std::string outPath;
+		bool ok = false;
 
-        std::cout << (ok ? "[EXPORT] Wrote: " : "[EXPORT] Failed: ") << outPath << "\n";
-    }
+		if (fmt == Gui::ExportFormat::OBJ)
+		{
+			ok = export3d::CityExporter::ExportOBJ(dir, base, ex, &outPath);
+		}
+
+		gui.SetLastExportResult(ok, outPath);
+	}
+
 
 	//generate Roads
 	if (showRoads)

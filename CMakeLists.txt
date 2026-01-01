@@ -42,14 +42,18 @@ add_subdirectory(EXT_Depend/stb_truetype)		#loading ttf files
 add_subdirectory(EXT_Depend/glm)				#math
 add_subdirectory(EXT_Depend/imgui-docking)		#ui
 add_subdirectory(EXT_Depend/gl2d)				#rendering
-
+#add_subdirectory(EXT_Depend/ImGuiFileDialog-master)
 
 # MY_SOURCES is defined to be a list of all the source files for my game 
 # DON'T ADD THE SOURCES BY HAND, they are already added with this macro
 file(GLOB_RECURSE MY_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
 
+list(APPEND MY_SOURCES
+    "${CMAKE_CURRENT_SOURCE_DIR}/EXT_Depend/ImGuiFileDialog-master/ImGuiFileDialog.cpp"
+)
 
-add_executable("${CMAKE_PROJECT_NAME}")
+
+add_executable("${CMAKE_PROJECT_NAME}" ${MY_SOURCES}) 
 
 set_property(TARGET "${CMAKE_PROJECT_NAME}" PROPERTY CXX_STANDARD 17)
 
@@ -69,7 +73,7 @@ else()
 
 endif()
 
-target_sources("${CMAKE_PROJECT_NAME}" PRIVATE ${MY_SOURCES} )
+#target_sources("${CMAKE_PROJECT_NAME}" PRIVATE ${MY_SOURCES} )
 
 
 if(MSVC) # If using the VS compiler...
@@ -84,8 +88,12 @@ if(MSVC) # If using the VS compiler...
 
 endif()
 
-target_include_directories("${CMAKE_PROJECT_NAME}" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include/")
+#target_include_directories("${CMAKE_PROJECT_NAME}" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include/")
 
+target_include_directories("${CMAKE_PROJECT_NAME}" PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/"
+    "${CMAKE_CURRENT_SOURCE_DIR}/EXT_Depend/ImGuiFileDialog-master"
+)
 
 
 #target_link_libraries("${CMAKE_PROJECT_NAME}" PRIVATE glm glfw 

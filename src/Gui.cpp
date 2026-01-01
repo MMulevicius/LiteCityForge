@@ -2,8 +2,12 @@
 #include "imgui.h"
 #include "backends/imgui_impl_glfw.h"
 #include "backends/imgui_impl_opengl3.h"
+#include "ImGuiFileDialog.h"
+#include <cstdio>
+#include <cstdlib>
 #include <chrono>
 #include <algorithm>
+#include <filesystem>
 
 bool Gui::Initialize_GUI(GLFWwindow *window, const char* glslVersion)
 {
@@ -178,14 +182,95 @@ void Gui::DrawGUI()
         mWantsResetCamera = true;
     }
 
-    ImGui::Separator();
+    ImGui::SeparatorText("Export");
 
-    ImGui::InputText("Export Name", mExportBaseName, IM_ARRAYSIZE(mExportBaseName));
+    // format (future-proof)
+    const char* fmtItems[] = { "Wavefront OBJ (.obj)" };
+    int fmtIndex = 0; // only OBJ for now
+    ImGui::Combo("Format", &fmtIndex, fmtItems, IM_ARRAYSIZE(fmtItems));
+    mExportFormat = ExportFormat::OBJ;
 
-    if (ImGui::Button("Export OBJ"))
+    // inputs
+    ImGui::InputText("File name", mExportBaseName, IM_ARRAYSIZE(mExportBaseName));
+    ImGui::InputText("Directory", mExportDir, IM_ARRAYSIZE(mExportDir));
+
+    ImGui::SameLine();
+    auto GetDefaultStartDir = []() -> std::string
     {
-        mExportRequested = true;
+        if (const char* home = std::getenv("HOME"))
+            return std::string(home);
+
+        // fallback if home isn't set
+        return std::filesystem::current_path().string();
+    };
+
+    if (ImGui::Button("Browse..."))
+    {
+        IGFD::FileDialogConfig config;
+
+        std::string start;
+        if (mExportDir[0] != '\0')
+            start = mExportDir;
+        else if (const char* home = std::getenv("HOME"))
+            start = home;
+        else
+            start = std::filesystem::current_path().string();
+
+        config.path = start;
+        config.flags = ImGuiFileDialogFlags_Modal;
+
+        ImGuiFileDialog::Instance()->OpenDialog(
+            "ChooseExportDir",
+            "Choose Export Folder",
+            nullptr,
+            config
+        );
     }
+
+    ImGui::SetNextWindowSize(ImVec2(900, 550), ImGuiCond_FirstUseEver);
+
+    if (ImGuiFileDialog::Instance()->Display("ChooseExportDir"))
+    {
+        if (ImGuiFileDialog::Instance()->IsOk())
+        {
+            std::string dir = ImGuiFileDialog::Instance()->GetCurrentPath();
+            std::snprintf(mExportDir, sizeof(mExportDir), "%s", dir.c_str());
+        }
+        ImGuiFileDialog::Instance()->Close();
+    }
+
+
+
+
+    bool hasDir = (mExportDir[0] != '\0');
+    if (!hasDir)
+    {
+        ImGui::TextColored(ImVec4(1, 0.6f, 0.2f, 1), "Pick a folder first.");
+    }
+
+    // export trigger button
+    if (ImGui::Button("Export"))
+    {
+        if (hasDir)
+            mExportRequested = true;
+    }
+
+    // status line
+    if (!mLastExportPath.empty())
+    {
+        if (mLastExportOk)
+        {
+            ImGui::TextColored(ImVec4(0.2f, 0.9f, 0.2f, 1.0f),
+                            "Exported: %s", mLastExportPath.c_str());
+        }
+        else
+        {
+            ImGui::TextColored(ImVec4(0.9f, 0.2f, 0.2f, 1.0f),
+                            "Export failed");
+        }
+    }
+
+
 
     ImGui::Separator();
 
@@ -321,10 +406,27 @@ bool Gui::ConsumeResetCamera()
     return v;
 }
 
-bool Gui::WantsExportOBJ()
+bool Gui::ConsumeExportRequest(std::string& outDir,
+                               std::string& outBaseName,
+                               ExportFormat& outFmt)
 {
-    bool v = mExportRequested;
-    mExportRequested = false;
-    return v;
+    if (!mExportRequested)
+        return false;
+
+    mExportRequested = false; // consume (one-shot)
+
+    outDir = mExportDir;
+    outBaseName = mExportBaseName;
+    outFmt = mExportFormat;
+
+    return true;
 }
+
+void Gui::SetLastExportResult(bool ok, const std::string& fullPath)
+{
+    mLastExportOk = ok;
+    mLastExportPath = fullPath;
+}
+
+
 
