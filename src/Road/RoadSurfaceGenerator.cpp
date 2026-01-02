@@ -1,3 +1,4 @@
+
 #include "Road/RoadSurfaceGenerator.h"
 #include "Road/RoadNetwork.h"
 #include "Road/RoadParams.h"
@@ -99,38 +100,65 @@ namespace road
         AddExtrudedQuad(out, L0, R0, R1, L1, baseY, height, addWalls);
     }
 
-    void BuildRoadSurfaceTriVerts(const RoadNetwork& net,
-                                  const RoadParams& params,
-                                  std::vector<glm::vec3>& outHighwayTris,
-                                  std::vector<glm::vec3>& outStreetTris,
-                                  float roadBaseY,
-                                  float roadHeight)
+void BuildRoadSurfaceTriVerts(const RoadNetwork& net,
+                              const RoadParams& params,
+                              std::vector<glm::vec3>& outHighwayTris,
+                              std::vector<glm::vec3>& outStreetTris,
+                              float roadBaseY,
+                              float roadHeight)
+{
+    outHighwayTris.clear();
+    outStreetTris.clear();
+
+    const auto& nodes = net.Nodes();
+    const auto& segs  = net.Segments();
+    if (nodes.empty() || segs.empty()) return;
+
+    // degree 
+    std::vector<int> deg(nodes.size(), 0);
+    for (const auto& s : segs)
     {
-        outHighwayTris.clear();
-        outStreetTris.clear();
-
-        const auto& nodes = net.Nodes();
-        const auto& segs  = net.Segments();
-        if (nodes.empty() || segs.empty()) return;
-
-        outHighwayTris.reserve(segs.size() * 6);
-        outStreetTris.reserve(segs.size() * 6);
-
-        for (const auto& s : segs)
-        {
-            const glm::vec2 A = nodes.at((size_t)s.a - 1).pos;
-            const glm::vec2 B = nodes.at((size_t)s.b - 1).pos;
-
-            const float halfW = (s.type == RoadType::Highway)
-                              ? params.highwayHalfWidth
-                              : params.streetHalfWidth;
-
-            if (s.type == RoadType::Highway)
-                AddExtrudedStrip(outHighwayTris, A, B, 0.0f, halfW, roadBaseY, roadHeight, 0.0f, 0.0f, true);
-            else
-                AddExtrudedStrip(outStreetTris, A, B, 0.0f, halfW, roadBaseY, roadHeight, 0.0f, 0.0f, true);
-        }
+        if (s.a > 0 && (size_t)s.a <= nodes.size()) deg[(size_t)s.a - 1]++;
+        if (s.b > 0 && (size_t)s.b <= nodes.size()) deg[(size_t)s.b - 1]++;
     }
+
+    outHighwayTris.reserve(segs.size() * 6);
+    outStreetTris.reserve(segs.size() * 6);
+
+    for (const auto& s : segs)
+    {
+        const glm::vec2 A = nodes.at((size_t)s.a - 1).pos;
+        const glm::vec2 B = nodes.at((size_t)s.b - 1).pos;
+
+        const float halfW = (s.type == RoadType::Highway)
+                          ? params.highwayHalfWidth
+                          : params.streetHalfWidth;
+
+        const float segLen = std::sqrt(glm::dot(B - A, B - A));
+        if (segLen < 1e-6f) continue;
+
+        // base extension size 
+        float extendBase = std::min(halfW, segLen * 0.45f);
+
+        // only extend into junctions
+        const bool A_isJunction = (deg[(size_t)s.a - 1] >= 2);
+        const bool B_isJunction = (deg[(size_t)s.b - 1] >= 2);
+
+        float extendA = A_isJunction ? extendBase : 0.0f;
+        float extendB = B_isJunction ? extendBase : 0.0f;
+
+        // negative trims = extend beyond endpoints
+        const float trimA = -extendA;
+        const float trimB = -extendB;
+
+        if (s.type == RoadType::Highway)
+            AddExtrudedStrip(outHighwayTris, A, B, 0.0f, halfW, roadBaseY, roadHeight, trimA, trimB, true);
+        else
+            AddExtrudedStrip(outStreetTris, A, B, 0.0f, halfW, roadBaseY, roadHeight, trimA, trimB, true);
+    }
+}
+
+
 
     void BuildSidewalkSurfaceTriVerts(const RoadNetwork& net,
                                       const RoadParams& params,
