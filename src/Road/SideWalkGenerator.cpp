@@ -45,6 +45,23 @@ namespace road
         return true;
     }
 
+    static bool IntersectRays(const Line2& a, const Line2& b, glm::vec2& out)
+    {
+        float det = a.dir.x * b.dir.y - a.dir.y * b.dir.x;
+        if (std::fabs(det) < 1e-6f) return false;
+
+        glm::vec2 r = b.p - a.p;
+
+        float t = (r.x * b.dir.y - r.y * b.dir.x) / det;
+        float u = (r.x * a.dir.y - r.y * a.dir.x) / det;
+
+        if (t < 0.0f || u < 0.0f) return false;
+
+        out = a.p + a.dir * t;
+        return true;
+    }
+
+
     static glm::vec2 ClampMiter(const glm::vec2& p, const glm::vec2& center, float maxDist)
     {
         glm::vec2 v = p - center;
@@ -67,6 +84,33 @@ namespace road
         bool hasL = false;
         bool hasR = false;
     };
+
+    static inline bool JoinTooFar(const glm::vec2& P,
+                                const glm::vec2& dirOut,
+                                RoadType type,
+                                const RoadParams& params,
+                                const glm::vec2& x)
+    {
+        // forward distance from node along the road direction
+        float t = Dot(x - P, dirOut);
+
+        // cap forward movement to about the curb offset distance (+ tiny slack)
+        float curbOff = RoadHalfW(type, params) + params.sidewalkGap + params.sidewalkWidth * 0.5f;
+        float maxAdvance = curbOff + 0.02f;
+
+        return t > maxAdvance;
+    }
+
+
+    static inline float Clamp01(float x) { return std::max(-1.0f, std::min(1.0f, x)); }
+
+    static inline float SinHalfAngle(const glm::vec2& a, const glm::vec2& b)
+    {
+        // a and b assumed normalized
+        float c = Clamp01(Dot(a, b));
+        // sin(theta/2) = sqrt((1 - cos(theta))/2)
+        return std::sqrt(std::max(0.0f, (1.0f - c) * 0.5f));
+    }
 
     void BuildSidewalkLineVerts(const RoadNetwork& net, const RoadParams& params,
                                 std::vector<glm::vec3>& outSidewalks, float y)
@@ -101,6 +145,7 @@ namespace road
 
         // miter clamp multiplier (bigger = sharper corners, smaller = safer)
         const float miterLimit = 4.0f;
+        
 
         // build junction joins
         for (size_t ni = 0; ni < nodes.size(); ++ni)
@@ -116,7 +161,7 @@ namespace road
                 RoadType type;
                 glm::vec2 dirOut;
                 float ang;
-                float off; 
+                float off;
             };
 
             std::vector<Entry> E;
@@ -144,6 +189,83 @@ namespace road
 
             std::sort(E.begin(), E.end(), [](const Entry& a, const Entry& b){ return a.ang < b.ang; });
 
+            auto leftLine = [&](const Entry& e) -> Line2
+            {
+                glm::vec2 n = NormalizeSafe(Perp(e.dirOut));
+                return Line2{ P + n * e.off, e.dirOut };
+            };
+
+            auto rightLine = [&](const Entry& e) -> Line2
+            {
+                glm::vec2 n = NormalizeSafe(Perp(e.dirOut));
+                return Line2{ P - n * e.off, e.dirOut };
+            };
+
+
+            if (E.size() == 2)
+            {
+                const Entry& e0 = E[0];
+                const Entry& e1 = E[1];
+
+                Line2 e0L = leftLine(e0);
+                Line2 e0R = rightLine(e0);
+                Line2 e1L = leftLine(e1);
+                Line2 e1R = rightLine(e1);
+
+                glm::vec2 xA, xB;
+                bool okA = IntersectLines(e0L, e1R, xA); 
+                bool okB = IntersectLines(e0R, e1L, xB); 
+
+                float clampDist = std::max(e0.off, e1.off) * miterLimit;
+
+                if (okA) xA = ClampMiter(xA, P, clampDist);
+                if (okB) xB = ClampMiter(xB, P, clampDist);
+
+                if (okA && okB)
+                {
+                    float dA = LenSq(xA - P);
+                    float dB = LenSq(xB - P);
+
+                    // outer = farther
+                    glm::vec2 outer = (dA > dB) ? xA : xB;
+                    glm::vec2 inner = (dA > dB) ? xB : xA;
+
+                    bool outerIsA = (dA > dB);
+
+                    if (outerIsA)
+                    {
+                        // outer came from (e0L, e1R), inner from (e0R, e1L)
+                        joins[ni][e0.segId].L = outer; joins[ni][e0.segId].hasL = true;
+                        joins[ni][e1.segId].R = outer; joins[ni][e1.segId].hasR = true;
+
+                        joins[ni][e0.segId].R = inner; joins[ni][e0.segId].hasR = true;
+                        joins[ni][e1.segId].L = inner; joins[ni][e1.segId].hasL = true;
+                    }
+                    else
+                    {
+                        // outer came from (e0R, e1L), inner from (e0L, e1R)
+                        joins[ni][e0.segId].R = outer; joins[ni][e0.segId].hasR = true;
+                        joins[ni][e1.segId].L = outer; joins[ni][e1.segId].hasL = true;
+
+                        joins[ni][e0.segId].L = inner; joins[ni][e0.segId].hasL = true;
+                        joins[ni][e1.segId].R = inner; joins[ni][e1.segId].hasR = true;
+                    }
+                }
+                else
+                {
+                    glm::vec2 p0L = e0L.p, p0R = e0R.p;
+                    glm::vec2 p1L = e1L.p, p1R = e1R.p;
+
+                    joins[ni][e0.segId].L = p0L; joins[ni][e0.segId].hasL = true;
+                    joins[ni][e0.segId].R = p0R; joins[ni][e0.segId].hasR = true;
+
+                    joins[ni][e1.segId].L = p1L; joins[ni][e1.segId].hasL = true;
+                    joins[ni][e1.segId].R = p1R; joins[ni][e1.segId].hasR = true;
+                }
+
+                continue;
+            }
+
 
             const int k = (int)E.size();
             for (int i = 0; i < k; ++i)
@@ -151,45 +273,78 @@ namespace road
                 const Entry& cur  = E[i];
                 const Entry& next = E[(i + 1) % k];
 
-                auto leftLine = [&](const Entry& e) -> Line2
-                {
-                    glm::vec2 n = NormalizeSafe(Perp(e.dirOut));
-                    return Line2{ P + n * e.off, e.dirOut };
-                };
-
-                auto rightLine = [&](const Entry& e) -> Line2
-                {
-                    glm::vec2 n = NormalizeSafe(Perp(e.dirOut));
-                    return Line2{ P - n * e.off, e.dirOut };
-                };
-
                 Line2 a = leftLine(cur);
                 Line2 b = rightLine(next);
 
                 glm::vec2 x;
-                if (!IntersectLines(a, b, x))
+                bool ok = IntersectLines(a, b, x);
+
+                // always clamp miters first 
+                if (ok)
                 {
-                    // fallback: just use cur's left offset point
-                    x = a.p;
+                    float clampDist = std::max(cur.off, next.off) * miterLimit;
+                    x = ClampMiter(x, P, clampDist);
+
+               
+                    float tCur  = Dot(x - P, cur.dirOut);
+                    float tNext = Dot(x - P, next.dirOut);
+
+                    // allow forward advance up to road half-width + sidewalk offset
+                    float maxCur  = RoadHalfW(cur.type,  params) + 0.75f * cur.off;
+                    float maxNext = RoadHalfW(next.type, params) + 0.75f * next.off;
+
+                    // small slack so it doesn't jitter
+                    const float slack = 0.02f;
+
+                    // build two adjusted candidates (one respecting each road's max advance)
+                    glm::vec2 xCur  = x;
+                    glm::vec2 xNext = x;
+
+                    if (tCur > maxCur + slack)
+                        xCur -= cur.dirOut * (tCur - (maxCur + slack));
+
+                    if (tNext > maxNext + slack)
+                        xNext -= next.dirOut * (tNext - (maxNext + slack));
+
+                    // if either clamp happened, blend them (keeps a single shared join)
+                    if (LenSq(xCur - x) > 1e-10f || LenSq(xNext - x) > 1e-10f)
+                        x = 0.5f * (xCur + xNext);
+
                 }
 
-                float clampDist = std::max(cur.off, next.off) * miterLimit;
-                x = ClampMiter(x, P, clampDist);
-
-                // cur gets left join at this node
+                if (ok)
                 {
-                    JoinLR& J = joins[ni][cur.segId];
-                    J.L = x;
-                    J.hasL = true;
+                    // cur gets left join at this node
+                    {
+                        JoinLR& J = joins[ni][cur.segId];
+                        J.L = x;
+                        J.hasL = true;
+                    }
+                    // next gets right join at this node
+                    {
+                        JoinLR& J = joins[ni][next.segId];
+                        J.R = x;
+                        J.hasR = true;
+                    }
                 }
-                // next gets right join at this node
+                else
                 {
-                    JoinLR& J = joins[ni][next.segId];
-                    J.R = x;
-                    J.hasR = true;
+                    // no shared join point -> each keeps its own clean offset at the node
+                    {
+                        JoinLR& J = joins[ni][cur.segId];
+                        J.L = a.p;
+                        J.hasL = true;
+                    }
+                    {
+                        JoinLR& J = joins[ni][next.segId];
+                        J.R = b.p;
+                        J.hasR = true;
+                    }
                 }
             }
+
         }
+
 
         // emit sidewalk centerlines per segment
         outSidewalks.reserve(segs.size() * 8);

@@ -49,6 +49,9 @@ namespace road
 
         float streetFromHighwayChance = 0.85;
 
+        float streetHighwayAttachRadius = 1.25f;
+        float streetHighwayKeepawayRadius = 1.25f;
+
         //loop params
         float loopCloseRadius = 18.0f;
         float loopCloseChance = 0.10f;

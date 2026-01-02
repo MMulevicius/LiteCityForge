@@ -41,6 +41,28 @@ namespace road
         return glm::length(p - proj);
 
     }
+
+    static bool IsHighwayNode(const RoadNetwork& net, NodeId id)
+    {
+        for (const auto& s : net.Segments())
+        {
+            if (s.type != RoadType::Highway) continue;
+            if (s.a == id || s.b == id) return true;
+        }
+        return false;
+    }
+
+    static float SegSegMinDist(const glm::vec2& a0, const glm::vec2& a1,
+                            const glm::vec2& b0, const glm::vec2& b1)
+    {
+        float d0 = DistPointtoSeg(a0, b0, b1);
+        float d1 = DistPointtoSeg(a1, b0, b1);
+        float d2 = DistPointtoSeg(b0, a0, a1);
+        float d3 = DistPointtoSeg(b1, a0, a1);
+        return std::min(std::min(d0, d1), std::min(d2, d3));
+    }
+
+
     static bool IsDirectionNearGrid(const glm::vec2& dir, float stepDeg, float maxOffDeg)
     {
         glm::vec2 d = glm::normalize(dir);
@@ -54,14 +76,22 @@ namespace road
     }
 
 
-    static void SeedStreetsFromHighways(const RoadParams& params, std::mt19937& rng, const RoadNetwork& net,
+    static void SeedStreetsFromHighways(const RoadParams& params,
+                                        std::mt19937& rng,
+                                        const RoadNetwork& net,
+                                        NodeId centerId,
                                         std::priority_queue<Candidate, std::vector<Candidate>, CandGreater>& pq,
                                         const RoadGenerator& gen)
     {
         std::uniform_real_distribution<float> dist01(0.0f, 1.0f);
+
         for (const auto& seg : net.Segments())
         {
-            if(seg.type != RoadType::Highway)
+            if (seg.type != RoadType::Highway)
+                continue;
+
+            // street limiter per highway segment
+            if (dist01(rng) > params.streetFromHighwayChance)
                 continue;
 
             const glm::vec2 A = net.Nodes()[seg.a - 1].pos;
@@ -69,17 +99,13 @@ namespace road
 
             glm::vec2 dir = glm::normalize(B - A);
 
-            //street limiter
-            const float seedChance = params.streetFromHighwayChance;
-            if (dist01(rng) > seedChance)
-                continue;
-
-            //seed left and/or right streets
-            glm::vec2 leftDir = glm::normalize(glm::vec2(-dir.y, dir.x));
-            glm::vec2 rightDir = glm::normalize(glm::vec2(dir.y, -dir.x));
+            glm::vec2 leftDir  = glm::normalize(glm::vec2(-dir.y,  dir.x));
+            glm::vec2 rightDir = glm::normalize(glm::vec2( dir.y, -dir.x));
 
             auto pushStreet = [&](NodeId start, const glm::vec2& d)
             {
+                if (start == centerId) return;
+
                 Candidate c;
                 c.start = start;
                 c.dir = d;
@@ -88,12 +114,13 @@ namespace road
                 c.priority = gen.ComputePriority(params, c.type, net.Nodes()[start - 1].pos);
                 pq.push(c);
             };
-            pushStreet(seg.a, leftDir);
-            pushStreet(seg.a, rightDir);
-            pushStreet(seg.b, leftDir);
-            pushStreet(seg.b, rightDir);
+
+            NodeId start = (dist01(rng) < 0.5f) ? seg.a : seg.b;
+            if (dist01(rng) < 0.5f) pushStreet(start, leftDir);
+            else                    pushStreet(start, rightDir);
         }
     }
+
     static bool SegIntersectLoose(const glm::vec2& p, const glm::vec2& p2, const glm::vec2& q, const glm::vec2& q2, float eps)
     {
         glm::vec2 r = p2 - p;
@@ -233,8 +260,6 @@ namespace road
             {
                 if (cand.type == RoadType::Street)
                 {
-                    // if(IsDirectionNearGrid(cand.dir, params.gridAngleStepDeg, 10.0f))
-                    //     continue;
 
                     return false;
                 }
@@ -266,7 +291,6 @@ namespace road
         if(!PassesMinAngleAtStart(params, net, cand))
             return false;
 
-        //TrySnapEndpoint(params, query, net, cand, outE, outSnapped, outSnapId);
         {
             bool loopSnapped = false;
             NodeId loopId = 0;
@@ -290,6 +314,67 @@ namespace road
             if (!loopSnapped)
             {
                 TrySnapEndpoint(params, query, net, cand, outE, outSnapped, outSnapId);
+            }
+
+            if (cand.type == RoadType::Street)
+            {
+                if (!outSnapped)
+                {
+                    auto nearNodes = query.QueryNearbyNodes(outE, params.streetHighwayAttachRadius);
+
+                    NodeId bestId = 0;
+                    float bestD2 = 1e30f;
+
+                    for (NodeId nid : nearNodes)
+                    {
+                        if (nid == cand.start) continue;
+                        if (!IsHighwayNode(net, nid)) continue;
+
+                        glm::vec2 p = net.Nodes()[nid - 1].pos;
+                        float d2 = glm::dot(p - outE, p - outE);
+                        if (d2 < bestD2)
+                        {
+                            bestD2 = d2;
+                            bestId = nid;
+                        }
+                    }
+
+                    if (bestId != 0)
+                    {
+                        outE = net.Nodes()[bestId - 1].pos;
+                        outSnapped = true;
+                        outSnapId = bestId;
+                    }
+                }
+
+                const bool connectedToHighway = (outSnapped && IsHighwayNode(net, outSnapId));
+                if (!connectedToHighway)
+                {
+                    auto nearbySegIds = query.QueryNearbySegments(outS, outE);
+
+                    for (SegId sid : nearbySegIds)
+                    {
+                        const auto& seg = net.Segments()[sid - 1];
+                        if (seg.type != RoadType::Highway) continue;
+
+                        const bool startIsHighway = IsHighwayNode(net, cand.start);
+
+                        glm::vec2 A = net.Nodes()[seg.a - 1].pos;
+                        glm::vec2 B = net.Nodes()[seg.b - 1].pos;
+
+                        float d = SegSegMinDist(outS, outE, A, B);
+
+                        if (startIsHighway)
+                        {
+                            float dStart = DistPointtoSeg(outS, A, B);
+                            if (dStart < params.streetHighwayKeepawayRadius)
+                                continue;
+                        }
+
+                        if (d < params.streetHighwayKeepawayRadius)
+                            return false;
+                    }
+                }
             }
         }
 
@@ -400,7 +485,7 @@ namespace road
             phase = GenerationPhase::Streets;
             iterations = 0;
 
-            SeedStreetsFromHighways(params, rng, net, pq, *this);
+            SeedStreetsFromHighways(params, rng, net, center, pq, *this);
 
             size_t segsAtStartOfStreets = net.Segments().size();
 
