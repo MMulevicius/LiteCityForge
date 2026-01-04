@@ -1,0 +1,31 @@
+# LiteCityForge materials
+
+newmtl mat_ground
+Ka 0 0 0
+Kd 0.2 0.3 0.3
+Ks 0 0 0
+Ns 1
+
+newmtl mat_hwy
+Ka 0 0 0
+Kd 0.07 0.07 0.07
+Ks 0 0 0
+Ns 1
+
+newmtl mat_street
+Ka 0 0 0
+Kd 0.12 0.12 0.12
+Ks 0 0 0
+Ns 1
+
+newmtl mat_sidewalk
+Ka 0 0 0
+Kd 0.7 0.7 0.7
+Ks 0 0 0
+Ns 1
+
+newmtl mat_building
+Ka 0 0 0
+Kd 0.75 0.75 0.78
+Ks 0 0 0
+Ns 1

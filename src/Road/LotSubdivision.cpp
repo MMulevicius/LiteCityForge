@@ -293,6 +293,75 @@ namespace road
         }
         return false;
     }
+    static float Dot2(const glm::vec2& a, const glm::vec2& b) { return a.x*b.x + a.y*b.y; }
+
+    static float DistPointSegmentSq(const glm::vec2& p, const glm::vec2& a, const glm::vec2& b)
+    {
+        glm::vec2 ab = b - a;
+        float ab2 = Dot2(ab, ab);
+        if (ab2 <= 1e-8f) return Dot2(p - a, p - a);
+
+        float t = Dot2(p - a, ab) / ab2;
+        t = std::max(0.0f, std::min(1.0f, t));
+        glm::vec2 c = a + ab * t;
+        glm::vec2 d = p - c;
+        return Dot2(d, d);
+    }
+
+    static float DistSegSegSq(const glm::vec2& a0, const glm::vec2& a1,
+                            const glm::vec2& b0, const glm::vec2& b1)
+    {
+        // if they properly intersect, distance is 0
+        if (SegSegIntersect(a0, a1, b0, b1)) return 0.0f;
+
+        // otherwise min of endpoint-to-segment distances
+        float d0 = DistPointSegmentSq(a0, b0, b1);
+        float d1 = DistPointSegmentSq(a1, b0, b1);
+        float d2 = DistPointSegmentSq(b0, a0, a1);
+        float d3 = DistPointSegmentSq(b1, a0, a1);
+        return std::min(std::min(d0, d1), std::min(d2, d3));
+    }
+
+    static bool PointInConvexQuad(const std::vector<glm::vec2>& q, const glm::vec2& p)
+    {
+        // q is CCW quad
+        auto cross = [](const glm::vec2& a, const glm::vec2& b) { return a.x*b.y - a.y*b.x; };
+
+        for (int i = 0; i < 4; ++i)
+        {
+            glm::vec2 a = q[i];
+            glm::vec2 b = q[(i + 1) % 4];
+            if (cross(b - a, p - a) < 0.0f)
+                return false;
+        }
+        return true;
+    }
+
+    static bool LotIntersectsCorridor(const std::vector<glm::vec2>& lot,
+                                    const glm::vec2& A, const glm::vec2& B,
+                                    float radius)
+    {
+        const float r2 = radius * radius;
+
+        for (int i = 0; i < 4; ++i)
+        {
+            if (DistPointSegmentSq(lot[i], A, B) <= r2)
+                return true;
+        }
+
+        if (PointInConvexQuad(lot, A) || PointInConvexQuad(lot, B))
+            return true;
+
+        for (int i = 0; i < 4; ++i)
+        {
+            const glm::vec2& e0 = lot[i];
+            const glm::vec2& e1 = lot[(i + 1) % 4];
+            if (DistSegSegSq(e0, e1, A, B) <= r2)
+                return true;
+        }
+
+        return false;
+    }
 
 
     struct OBB2
@@ -494,15 +563,20 @@ namespace road
 
             glm::vec2 dir = NormalizeSafe(ab);
 
-            float halfWidth = RoadHalfWidth(seg.type, params);
-            float baseOffset = halfWidth + params.lotSetBackFromRoad;
-            float depth = params.lotDepth;
+        float halfWidth = RoadHalfWidth(seg.type, params);
 
-            if (seg.type == RoadType::Highway)
-            {
-                baseOffset = halfWidth + params.highwayLotSetback;
-                depth = params.highwayLotDepth;
-            }
+        float baseOffset = halfWidth + params.sidewalkGap + params.sidewalkWidth
+                        + params.lotSetBackFromRoad
+                        + 0.05f; 
+
+        float depth = params.lotDepth;
+
+        if (seg.type == RoadType::Highway)
+        {
+            baseOffset = halfWidth + params.sidewalkGap + params.sidewalkWidth + params.highwayLotSetback;
+            depth = params.highwayLotDepth;
+        }
+
 
 
             // create lots on both sides of the road
@@ -589,12 +663,15 @@ namespace road
                             const glm::vec2 A = nodes.at(other.a - 1).pos;
                             const glm::vec2 B = nodes.at(other.b - 1).pos;
 
+                            float rad = RoadHalfWidth(other.type, params) + params.sidewalkGap + params.sidewalkWidth;
+
+                            rad += 0.05f;
+
                             glm::vec2 segMin(std::min(A.x, B.x), std::min(A.y, B.y));
                             glm::vec2 segMax(std::max(A.x, B.x), std::max(A.y, B.y));
 
-                            float inflate = 0.05f;
-                            segMin -= glm::vec2(inflate);
-                            segMax += glm::vec2(inflate);
+                            segMin -= glm::vec2(rad);
+                            segMax += glm::vec2(rad);
 
                             bool aabbOverlap =
                                 !(lotOBB.aabbMax.x < segMin.x || lotOBB.aabbMin.x > segMax.x ||
@@ -602,9 +679,11 @@ namespace road
 
                             if (aabbOverlap)
                             {
-                                if (LotIntersectsSegment(poly, A, B))
+                                if (LotIntersectsCorridor(poly, A, B, rad))
                                     return false;
                             }
+
+
                         }
 
                         return true;

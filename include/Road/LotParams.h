@@ -9,6 +9,10 @@ namespace road
         float streetHalfWidth = 0.35f;
         float highwayHalfWidth = 0.60f;
 
+        //sidewalk width
+        float sidewalkWidth = 0.20f;
+        float sidewalkGap = 0.03f;
+
         //gap between road edge and lot start
         float lotSetBackFromRoad = 0.25f;
 
@@ -16,7 +20,7 @@ namespace road
         float lotDepth = 4.0f;
 
         //extra spacing between lots
-        float lotPadding = 0.08f;
+        float lotPadding = 0.03f;
 
         //depth
         float minDepthScale = 0.45f;

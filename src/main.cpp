@@ -421,6 +421,10 @@ while (!glfwWindowShouldClose(window))
 
 		lotParams.streetHalfWidth = roadParams.streetHalfWidth;
 		lotParams.highwayHalfWidth = roadParams.highwayHalfWidth;
+
+		lotParams.sidewalkWidth = roadParams.sidewalkWidth;
+		lotParams.sidewalkGap = roadParams.sidewalkGap;
+
 		lots = lotGen.GenerateLots(roadNet, lotParams);
 
 		int nUrban = 0, nSub = 0, nRural = 0;
