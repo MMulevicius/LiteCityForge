@@ -45,8 +45,8 @@ void Gui::DrawGUI()
 {
     
     if(!mInitialized) return;
-    //set default size and position of the GUI
-    ImGui::SetNextWindowSize(ImVec2(350, 500), ImGuiCond_Always);
+    //set default size and position of the GUI. Original was 350x500
+    ImGui::SetNextWindowSize(ImVec2(600, 700), ImGuiCond_Always);
     ImGui::SetNextWindowPos(ImVec2(20, 20), ImGuiCond_FirstUseEver);
 
     //miscellaneous
@@ -86,6 +86,20 @@ void Gui::DrawGUI()
     ImGui::Separator();
 
     ImGui::Checkbox("3D mode", &mEnable3D);
+    ImGui::SameLine();
+
+    ImGui::Checkbox("Show Lots", &mShowLotDebug);
+    ImGui::SameLine();
+
+    ImGui::Checkbox("Show Sidewalks", &mShowSidewalks);
+    ImGui::SameLine();
+
+    ImGui::Checkbox("Show Gardens", &mShowGardens);
+    ImGui::SameLine();
+
+    ImGui::Checkbox("Show Footprints", &mShowFootprints);
+
+    ImGui::Separator();
 
     if (ImGui::Button("Generate")) {
         
@@ -348,11 +362,6 @@ void Gui::DrawGUI()
         ImGui::SliderFloat("Garden Back Ratio", &mLotParams.gardenBackRatio, 0.0f, 0.9f, "%.2f");
         ImGui::SliderFloat("Min Garden Depth", &mLotParams.minGardenDepth, 0.0f, 5.0f, "%.2f");
     }
-
-    ImGui::Checkbox("Show Lots", &mShowLotDebug);
-    ImGui::Checkbox("Show Sidewalks", &mShowSidewalks);
-    ImGui::Checkbox("Show Gardens", &mShowGardens);
-    ImGui::Checkbox("Show Footprints", &mShowFootprints);
 
     ImGui::Separator();
 
