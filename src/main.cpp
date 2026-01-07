@@ -45,11 +45,11 @@ struct CityContext
 
 struct FrameContext
 {
-	float dt = 0.0f;
+	float deltaTime = 0.0f;
 	int w = 1;
 	int h = 1;
 	float aspect = 1.0f;
-	glm::mat4 vp = glm::mat4(1.0f);
+	glm::mat4 viewProjection = glm::mat4(1.0f);
 };
 
 struct GroundContext 
@@ -265,8 +265,6 @@ namespace
 		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		float aspect = (h == 0) ? 1.0f : (float)w / (float)h;
-
 	}
 
 	void processInput(GLFWwindow *window)
@@ -325,20 +323,20 @@ namespace
 
 	}
 
-	//compute dt + framebuffer size + vp matrix
+	//compute deltaTime + framebuffer size + viewProjection matrix
 	FrameContext BeginFrameTimingAndVP(GLFWwindow* window, Camera& camera) {
 
 		FrameContext frameCTX;
 
 		static float last = (float)glfwGetTime();
 		float now = (float)glfwGetTime();
-		frameCTX.dt = now - last;
+		frameCTX.deltaTime = now - last;
 		last = now;
 
 		glfwGetFramebufferSize(window, &frameCTX.w, &frameCTX.h);
 		float aspect = (frameCTX.h == 0) ? 1.0f : (float)frameCTX.w / (float)frameCTX.h;
 
-		frameCTX.vp = camera.GetVP(aspect);
+		frameCTX.viewProjection = camera.GetVP(aspect);
 		return frameCTX;
 	}
 
@@ -349,7 +347,7 @@ namespace
 	}
 
 	//camera controls
-	void UpdateCamera3DControls(Camera& camera, GLFWwindow* window, float dt) {
+	void UpdateCamera3DControls(Camera& camera, GLFWwindow* window, float deltaTime) {
 			
 			bool rmbDown = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS;
 
@@ -360,28 +358,28 @@ namespace
 
 			glfwSetInputMode(window, GLFW_CURSOR, rmbDown ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
 
-			camera.UpdateFly3D(window, dt);
+			camera.UpdateFly3D(window, deltaTime);
 	}
 
-	void UpdateCamera2DControls(Camera& camera, GLFWwindow* window, float dt) {
+	void UpdateCamera2DControls(Camera& camera, GLFWwindow* window, float deltaTime) {
 			
-			camera.UpdatePanXZ(window, dt);
+			camera.UpdatePanXZ(window, deltaTime);
 			camera.ApplyScrollZoom(gScrollY);
 			gScrollY = 0.0f;
 	}
 
-	void UpdateCameraPerFrame(Camera& camera, GLFWwindow* window, float dt, bool is3D) {
+	void UpdateCameraPerFrame(Camera& camera, GLFWwindow* window, float deltaTime, bool is3D) {
 		
-		camera.Update(dt);
+		camera.Update(deltaTime);
 
 		if (is3D) {
-			UpdateCamera3DControls(camera, window, dt);
+			UpdateCamera3DControls(camera, window, deltaTime);
 		} else {
-			UpdateCamera2DControls(camera, window, dt);
+			UpdateCamera2DControls(camera, window, deltaTime);
 		}
 	}
 
-	void Draw3DMeshesIfEnabled (bool is3D, Shader& lineShader, const glm::mat4& vp,
+	void Draw3DMeshesIfEnabled (bool is3D, Shader& lineShader, const glm::mat4& viewProjection,
 										road::BuildingRenderer& roadMeshStreet,
 										road::BuildingRenderer& roadMeshHighway,
 										road::BuildingRenderer& sidewalkMesh,
@@ -397,24 +395,24 @@ namespace
 
 			//streets
 			glUniform3f(glGetUniformLocation(lineShader.ID, "uColor"), 0.12f, 0.12f, 0.12f);
-			roadMeshStreet.Draw(lineShader, vp);
+			roadMeshStreet.Draw(lineShader, viewProjection);
 
 			//highways
 			glUniform3f(glGetUniformLocation(lineShader.ID, "uColor"), 0.07f, 0.07f, 0.07f);
-			roadMeshHighway.Draw(lineShader, vp);
+			roadMeshHighway.Draw(lineShader, viewProjection);
 
 			//sidewalks
 			glUniform3f(glGetUniformLocation(lineShader.ID, "uColor"), 0.70f, 0.70f, 0.70f);
-			sidewalkMesh.Draw(lineShader, vp);
+			sidewalkMesh.Draw(lineShader, viewProjection);
 
 			//buildings
 			glUniform3f(glGetUniformLocation(lineShader.ID, "uColor"), 0.75f, 0.75f, 0.78f);
-			buildingMesh.Draw(lineShader, vp);
+			buildingMesh.Draw(lineShader, viewProjection);
 
 
 	}
 	//ground and returns for export
-	GroundContext DrawGroundAndGetExtents(Primitives& primitives, Shader& primShader, const glm::mat4& vp, const CityContext& cityCTX) {
+	GroundContext DrawGroundAndGetExtents(Primitives& primitives, Shader& primShader, const glm::mat4& viewProjection, const CityContext& cityCTX) {
 
 
 		GroundContext g;
@@ -425,7 +423,7 @@ namespace
 		g.halfW = cityCTX.cityR + g.margin;
 		g.halfH = cityCTX.cityR + g.margin;
 
-		primitives.DrawGround(primShader, vp, cityCTX.centerXZ, g.halfW, g.halfH);
+		primitives.DrawGround(primShader, viewProjection, cityCTX.centerXZ, g.halfW, g.halfH);
 		return g;
 
 	}
@@ -466,7 +464,7 @@ namespace
 		
 	}
 
-	void DrawDebugLinesIfEnabled(bool showRoads, Gui& gui, Shader& lineShader, const glm::mat4& vp,
+	void DrawDebugLinesIfEnabled(bool showRoads, Gui& gui, Shader& lineShader, const glm::mat4& viewProjection,
 										road::LineRenderer& highwayLines, road::LineRenderer& streetLines,
 										road::LineRenderer& lotLines, road::LineRenderer& sidewalkLines,
 										road::LineRenderer& gardenLines, road::LineRenderer& footprintLines)
@@ -482,19 +480,19 @@ namespace
 		//highways
 		glLineWidth(4.0f);
 		glUniform3f(glGetUniformLocation(lineShader.ID, "uColor"), 0.05f, 0.05f, 0.05f);
-		highwayLines.Draw(lineShader, vp);
+		highwayLines.Draw(lineShader, viewProjection);
 
 		//streets
 		glLineWidth(1.0f);
 		glUniform3f(glGetUniformLocation(lineShader.ID, "uColor"), 0.05f, 0.05f, 0.05f);
-		streetLines.Draw(lineShader, vp);
+		streetLines.Draw(lineShader, viewProjection);
 
 		//lots 
 		if (gui.ShowLotDebug())
 		{
 			glLineWidth(2.0f);
 			glUniform3f(glGetUniformLocation(lineShader.ID, "uColor"), 0.1f, 0.4f, 1.0f);
-			lotLines.Draw(lineShader, vp);
+			lotLines.Draw(lineShader, viewProjection);
 			glLineWidth(1.0f);
 		}
 
@@ -503,7 +501,7 @@ namespace
 		{
 			glLineWidth(2.0f);	
 			glUniform3f(glGetUniformLocation(lineShader.ID, "uColor"), 0.65f, 0.65f, 0.65f);
-			sidewalkLines.Draw(lineShader, vp);
+			sidewalkLines.Draw(lineShader, viewProjection);
 			glLineWidth(1.0f);
 		}
 
@@ -512,7 +510,7 @@ namespace
 		{
 			glLineWidth(2.0f);
 			glUniform3f(glGetUniformLocation(lineShader.ID, "uColor"), 0.1f, 0.9f, 0.2f);
-			gardenLines.Draw(lineShader, vp);
+			gardenLines.Draw(lineShader, viewProjection);
 			glLineWidth(1.0f);
 		}
 
@@ -521,7 +519,7 @@ namespace
 		{
 			glLineWidth(2.0f);
 			glUniform3f(glGetUniformLocation(lineShader.ID, "uColor"), 0.95f, 0.65f, 0.15f);
-			footprintLines.Draw(lineShader, vp);
+			footprintLines.Draw(lineShader, viewProjection);
 			glLineWidth(1.0f);
 		}
 	}
@@ -760,19 +758,19 @@ while (!glfwWindowShouldClose(window))
 	HandlePlatformInputAndViewport(window);
 
 	//camera per-frame update + controls
-	UpdateCameraPerFrame(camera, window, frame.dt, is3D);
+	UpdateCameraPerFrame(camera, window, frame.deltaTime, is3D);
 
 	//draws 3D meshes (only when is3D)
-	Draw3DMeshesIfEnabled(is3D, lineShader, frame.vp, roadMeshStreet, roadMeshHighway, sidewalkMesh, buildingMesh);
+	Draw3DMeshesIfEnabled(is3D, lineShader, frame.viewProjection, roadMeshStreet, roadMeshHighway, sidewalkMesh, buildingMesh);
 
 	//ground and allows export
-	GroundContext ground = DrawGroundAndGetExtents(primitives, primShader, frame.vp, city);
+	GroundContext ground = DrawGroundAndGetExtents(primitives, primShader, frame.viewProjection, city);
 
 	//export request
 	HandleExportIfRequested(gui, city, ground, roadHighwayTris, roadStreetTris, sidewalkTris, buildingTriVerts);
 
 	//debug lines
-	DrawDebugLinesIfEnabled(showRoads, gui, lineShader, frame.vp, highwayLines, streetLines, lotLines, sidewalkLines, gardenLines, footprintLines);
+	DrawDebugLinesIfEnabled(showRoads, gui, lineShader, frame.viewProjection, highwayLines, streetLines, lotLines, sidewalkLines, gardenLines, footprintLines);
 
 	GenerateCityIfRequested(gui, showRoads, roadGen, lotGen, roadParams, roadNet, lots,
     						roadMeshHighway, roadMeshStreet, sidewalkMesh, buildingMesh,

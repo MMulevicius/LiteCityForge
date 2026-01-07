@@ -5,18 +5,21 @@
 class Camera
 {
 private:
+    //core camera pose
     glm::vec3 mPos;
     glm::vec3 mTarget;
     glm::vec3 mUp;
 
+    //2D movement + zoom
     float mSpeed;
     float mOrthoSize;
 
+    //for smooth camera blending/transition
     glm::vec3 mPosTarget;
     glm::vec3 mTargetTarget;
     float mOrthoSizeTarget;
     
-    //for 3D camera
+    //mode and mouse state
     bool mIs3D = false;
     bool mTargetIs3D = false;
     bool mMouseInit = false;
@@ -24,6 +27,7 @@ private:
     double mLastMouseX = 0.0;
     double mLastMouseY = 0.0;
 
+    //3D camera parameters
     float mFovDeg = 55.0f;
     float mBlend = 1.0f;
     float mBlendSpeed = 3.0f;
@@ -32,6 +36,7 @@ private:
     float mMouseSens = 0.12f;
     float mFlySpeed = 60.0f;
 
+    //helper methods: Lerp, 
     static float SmoothStep(float t);
     static glm::vec3 Lerp(const glm::vec3& a, const glm::vec3& b, float t);
     static float LerpFloat(float a, float b, float t);
@@ -41,6 +46,7 @@ private:
     
 
 public:
+
     Camera();
 
     //camera position reset
@@ -51,10 +57,10 @@ public:
     void OnMouseMove(double xpos, double ypos, bool rmbDown);
 
     //updaters
-    void Update(float dt);
-    void UpdateZoomOrtho(GLFWwindow* window, float dt);
-    void UpdatePanXZ(GLFWwindow *window, float dt);
-    void UpdateFly3D(GLFWwindow* window, float dt);
+    void Update(float deltaTime);
+    void UpdateZoomOrtho(GLFWwindow* window, float deltaTime);
+    void UpdatePanXZ(GLFWwindow *window, float deltaTime);
+    void UpdateFly3D(GLFWwindow* window, float deltaTime);
 
     //getters
     glm::mat4 GetVP(float aspect) const;

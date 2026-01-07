@@ -2,25 +2,32 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <algorithm>
 
+//initializes the default camera
 Camera::Camera()
 {
+    //behind and above origin
     mPos = glm::vec3 (0, 40, 40);
+    //looking at origin
     mTarget = glm::vec3(0, 0, 0);
+    //Y is set as "up"
     mUp = glm::vec3(0, 1, 0);
+    //2D pan speed
     mSpeed = 30.0f;
+
     mOrthoSize = 50.0f;
 }
-
+//keeps value in [0,1]
 static float Clamp01(float x) { return std::max(0.0f, std::min(1.0f, x)); }
 
+    
+// classic smoothstep
 float Camera::SmoothStep(float t)
 {
-    // classic smoothstep
     t = Clamp01(t);
     return t * t * (3.0f - 2.0f * t);
 }
 
-
+//linear interpolation
 glm::vec3 Camera::Lerp(const glm::vec3& a, const glm::vec3& b, float t)
 {
     return a + (b - a) * t;
@@ -32,12 +39,12 @@ float Camera::LerpFloat(float a, float b, float t)
 }
 
 
-void Camera::Update(float dt)
+void Camera::Update(float deltaTime)
 {
     // smoothly move towards target pose whenever mBlend < 1
     if (mBlend < 1.0f)
     {
-        mBlend = Clamp01(mBlend + dt * mBlendSpeed);
+        mBlend = Clamp01(mBlend + deltaTime * mBlendSpeed);
         float t = SmoothStep(mBlend);
 
         mPos      = Lerp(mPos, mPosTarget, t);
@@ -68,7 +75,7 @@ void Camera::Set3DEnabled(bool enabled, const glm::vec2& cityCenterXZ, float cit
     mIs3D = enabled;
 
     
-    mBlend = 1.0f;
+    mBlend = 0.0f;
 
     if (!enabled)
     {
@@ -108,7 +115,7 @@ void Camera::Set3DEnabled(bool enabled, const glm::vec2& cityCenterXZ, float cit
 
 
 
-void Camera::UpdatePanXZ(GLFWwindow* window, float dt)
+void Camera::UpdatePanXZ(GLFWwindow* window, float deltaTime)
 {
     if (mTargetIs3D || mIs3D) return;
     mUp = glm::vec3(0, 0, -1);
@@ -123,7 +130,7 @@ void Camera::UpdatePanXZ(GLFWwindow* window, float dt)
 
     if (glm::length(move) > 0.0f)
     {
-        move = glm::normalize(move) * mSpeed * dt;
+        move = glm::normalize(move) * mSpeed * deltaTime;
 
         // pan camera position
         mPos += move;
@@ -221,7 +228,7 @@ void Camera::OnMouseMove(double xpos, double ypos, bool rmbDown)
     mPitchDeg = std::max(-89.0f, std::min(89.0f, mPitchDeg));
 }
 
-void Camera::UpdateFly3D(GLFWwindow* window, float dt)
+void Camera::UpdateFly3D(GLFWwindow* window, float deltaTime)
 {
     if (!mIs3D && !mTargetIs3D) return;
 
@@ -247,7 +254,7 @@ void Camera::UpdateFly3D(GLFWwindow* window, float dt)
 
     if (glm::length(move) > 0.0f)
     {
-        move = glm::normalize(move) * speed * dt;
+        move = glm::normalize(move) * speed * deltaTime;
         mPos += move;
         mPosTarget += move; 
     }

@@ -9,10 +9,8 @@ class Primitives
 {
 private:
     unsigned int mGroundVAO = 0, mGroundVBO = 0;
-    unsigned int mCubeVAO = 0, mCubeVBO = 0;
 
     void CreateGround();
-    void CreateCube();
 
 public:
     Primitives () = default;
@@ -22,9 +20,8 @@ public:
     void Shutdown_Prim();
 
     void DrawGround(Shader& shader,
-                    const glm::mat4& vp,
+                    const glm::mat4& viewProjection,
                     const glm::vec2& centerXZ,
                     float halfWidth,
                     float halfHeight);
-    void DrawCube(const Shader &shader, const glm::mat4 &vp, const glm::mat4 &model);
 };

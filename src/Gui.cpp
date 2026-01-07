@@ -15,15 +15,17 @@ bool Gui::Initialize_GUI(GLFWwindow *window, const char* glslVersion)
     //store the GLFW window pointer for further use
     mWindow = window;
 
+    //checks if header and compiled versions match
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
 
+    //IO struct keyboard/mouse config
     ImGuiIO& io = ImGui::GetIO(); (void)io;
 
     //set theme is dark
     ImGui::StyleColorsDark();
 
-
+    //connects ImGui to GLFW and sets up OpenGL rendering backend
     if(!ImGui_ImplGlfw_InitForOpenGL(mWindow, true)) return false;
     if(!ImGui_ImplOpenGL3_Init(glslVersion)) return false;
 
@@ -32,6 +34,7 @@ bool Gui::Initialize_GUI(GLFWwindow *window, const char* glslVersion)
     return true;
 }
 
+//standard start for ImGui frame sequence
 void Gui::BeginFrameGUI()
 {
     if(!mInitialized) return;

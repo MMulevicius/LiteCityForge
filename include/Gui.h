@@ -7,33 +7,40 @@
 class Gui 
 {
 public:
+    //stores export extensions
     enum class ExportFormat { OBJ };
 
 private:
+    //window + init 
     GLFWwindow* mWindow = nullptr;
     bool mInitialized = false;
 
+    //3D toggle and generate + quite one shot events
     bool mEnable3D = false;
     bool mGenerateRequested = false;
     bool mQuitRequested = false;
 
+    //debug toggles
     bool mShowLotDebug = false;
     bool mShowSidewalks = false;
     bool mShowGardens = false;
     bool mShowFootprints = false;
 
+    //camera reset one shot
     bool mWantsResetCamera = false;
 
+    //export state and UI fields
     bool mExportRequested = false;
     ExportFormat mExportFormat = ExportFormat::OBJ;
 
     char mExportBaseName[64] = "city";
     char mExportDir[256] = "";
 
+    //export result feedback
     bool mLastExportOk = false;
     std::string mLastExportPath;
 
-    // params
+    //params
     road::LotParams mLotParams;
     road::RoadParams mRoadParams;
 
