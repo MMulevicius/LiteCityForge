@@ -84,10 +84,11 @@ void Gui::DrawGUI()
     static float uiLoopCloseRadius = 18.0f;
 
     
-
+    //title of the menu
     ImGui::Begin("LiteCityForge");
     ImGui::Separator();
 
+    //checkboxes
     ImGui::Checkbox("3D mode", &mEnable3D);
     ImGui::SameLine();
 
@@ -104,6 +105,7 @@ void Gui::DrawGUI()
 
     ImGui::Separator();
 
+    //generate button
     if (ImGui::Button("Generate")) {
         
         mGenerateRequested = true;
@@ -199,95 +201,11 @@ void Gui::DrawGUI()
         mWantsResetCamera = true;
     }
 
-    ImGui::SeparatorText("Export");
-
-    // format (future-proof)
-    const char* fmtItems[] = { "Wavefront OBJ (.obj)" };
-    int fmtIndex = 0; // only OBJ for now
-    ImGui::Combo("Format", &fmtIndex, fmtItems, IM_ARRAYSIZE(fmtItems));
-    mExportFormat = ExportFormat::OBJ;
-
-    // inputs
-    ImGui::InputText("File name", mExportBaseName, IM_ARRAYSIZE(mExportBaseName));
-    ImGui::InputText("Directory", mExportDir, IM_ARRAYSIZE(mExportDir));
-
     ImGui::SameLine();
-    auto GetDefaultStartDir = []() -> std::string
+    if (mLastGenerationMs >= 0.0)
     {
-        if (const char* home = std::getenv("HOME"))
-            return std::string(home);
-
-        // fallback if home isn't set
-        return std::filesystem::current_path().string();
-    };
-
-    if (ImGui::Button("Browse..."))
-    {
-        IGFD::FileDialogConfig config;
-
-        std::string start;
-        if (mExportDir[0] != '\0')
-            start = mExportDir;
-        else if (const char* home = std::getenv("HOME"))
-            start = home;
-        else
-            start = std::filesystem::current_path().string();
-
-        config.path = start;
-        config.flags = ImGuiFileDialogFlags_Modal;
-
-        ImGuiFileDialog::Instance()->OpenDialog(
-            "ChooseExportDir",
-            "Choose Export Folder",
-            nullptr,
-            config
-        );
+        ImGui::Text("Generation time: %.2f ms", mLastGenerationMs);
     }
-
-    ImGui::SetNextWindowSize(ImVec2(900, 550), ImGuiCond_FirstUseEver);
-
-    if (ImGuiFileDialog::Instance()->Display("ChooseExportDir"))
-    {
-        if (ImGuiFileDialog::Instance()->IsOk())
-        {
-            std::string dir = ImGuiFileDialog::Instance()->GetCurrentPath();
-            std::snprintf(mExportDir, sizeof(mExportDir), "%s", dir.c_str());
-        }
-        ImGuiFileDialog::Instance()->Close();
-    }
-
-
-
-
-    bool hasDir = (mExportDir[0] != '\0');
-    if (!hasDir)
-    {
-        ImGui::TextColored(ImVec4(1, 0.6f, 0.2f, 1), "Pick a folder first.");
-    }
-
-    // export trigger button
-    if (ImGui::Button("Export"))
-    {
-        if (hasDir)
-            mExportRequested = true;
-    }
-
-    // status line
-    if (!mLastExportPath.empty())
-    {
-        if (mLastExportOk)
-        {
-            ImGui::TextColored(ImVec4(0.2f, 0.9f, 0.2f, 1.0f),
-                            "Exported: %s", mLastExportPath.c_str());
-        }
-        else
-        {
-            ImGui::TextColored(ImVec4(0.9f, 0.2f, 0.2f, 1.0f),
-                            "Export failed");
-        }
-    }
-
-
 
     ImGui::Separator();
 
@@ -297,25 +215,166 @@ void Gui::DrawGUI()
     {
         uiSeed = (int)std::chrono::high_resolution_clock::now().time_since_epoch().count();
     }
+
+
+    ImGui::SetNextItemOpen(false, ImGuiCond_FirstUseEver);
+    if (ImGui::CollapsingHeader("Export Settings", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+
+        // format (future-proof)
+        const char* fmtItems[] = { "Wavefront OBJ (.obj)" };
+        int fmtIndex = 0; // only OBJ for now
+        ImGui::Combo("Format", &fmtIndex, fmtItems, IM_ARRAYSIZE(fmtItems));
+        mExportFormat = ExportFormat::OBJ;
+
+        // inputs
+        ImGui::InputText("File name", mExportBaseName, IM_ARRAYSIZE(mExportBaseName));
+        ImGui::InputText("Directory", mExportDir, IM_ARRAYSIZE(mExportDir));
+
+        ImGui::SameLine();
+        auto GetDefaultStartDir = []() -> std::string
+        {
+            if (const char* home = std::getenv("HOME"))
+                return std::string(home);
+
+            // fallback if home isn't set
+            return std::filesystem::current_path().string();
+        };
+
+        if (ImGui::Button("Browse..."))
+        {
+            IGFD::FileDialogConfig config;
+
+            std::string start;
+            if (mExportDir[0] != '\0')
+                start = mExportDir;
+            else if (const char* home = std::getenv("HOME"))
+                start = home;
+            else
+                start = std::filesystem::current_path().string();
+
+            config.path = start;
+            config.flags = ImGuiFileDialogFlags_Modal;
+
+            // IMPORTANT: "." means folder selection in older versions
+            ImGuiFileDialog::Instance()->OpenDialog(
+                "ChooseExportDir",
+                "Choose Export Folder",
+                ".",        // 👈 THIS is the key
+                config
+            );
+        }
+
+
+
+        ImGui::SetNextWindowSize(ImVec2(900, 550), ImGuiCond_FirstUseEver);
+
+        if (ImGuiFileDialog::Instance()->Display("ChooseExportDir"))
+        {
+            if (ImGuiFileDialog::Instance()->IsOk())
+            {
+                std::string pickedDir;
+
+                // Prefer selection API (more reliable than GetCurrentPath for actual user choice)
+                auto selection = ImGuiFileDialog::Instance()->GetSelection(); // map<filename, fullpath>
+
+                if (!selection.empty())
+                {
+                    // Take the first selected entry
+                    const std::string pickedPath = selection.begin()->second;
+                    std::filesystem::path p(pickedPath);
+
+                    // If user selected a file, use its parent folder; if it's a folder, use it
+                    if (std::filesystem::exists(p) && std::filesystem::is_directory(p))
+                        pickedDir = p.string();
+                    else
+                        pickedDir = p.parent_path().string();
+                }
+                else
+                {
+                    // Fallback
+                    pickedDir = ImGuiFileDialog::Instance()->GetCurrentPath();
+                }
+
+                if (!pickedDir.empty())
+                {
+                    std::snprintf(mExportDir, IM_ARRAYSIZE(mExportDir), "%s", pickedDir.c_str());
+                }
+            }
+
+            ImGuiFileDialog::Instance()->Close();
+        }
+
+
+
+        bool hasDir  = (mExportDir[0] != '\0');
+        bool hasName = (mExportBaseName[0] != '\0');
+
+        if (!hasDir)
+            ImGui::TextColored(ImVec4(1, 0.6f, 0.2f, 1), "Pick a folder first.");
+        if (!hasName)
+            ImGui::TextColored(ImVec4(1, 0.6f, 0.2f, 1), "Enter a file name.");
+
+
+        // export trigger button
+        if (ImGui::Button("Export##ExportButton"))
+        {
+            if (hasDir && hasName)
+                mExportRequested = true;
+        }
+
+        ImGui::Text("DEBUG: hasDir=%d hasName=%d requested=%d",
+            (int)hasDir, (int)hasName, (int)mExportRequested);
+        ImGui::Text("DEBUG: dir='%s'", mExportDir);
+        ImGui::Text("DEBUG: name='%s'", mExportBaseName);
+
+
+
+        // status line
+        // status line (show even on failure)
+        if (mHasLastExport)
+        {
+            if (mLastExportOk)
+            {
+                ImGui::TextColored(ImVec4(0.2f, 0.9f, 0.2f, 1.0f),
+                                "Exported: %s", mLastExportPath.c_str());
+            }
+            else
+            {
+                ImGui::TextColored(ImVec4(0.9f, 0.2f, 0.2f, 1.0f),
+                                "Export failed (check folder permissions / path)");
+                ImGui::Text("Dir: %s", mExportDir);
+                ImGui::Text("Name: %s", mExportBaseName);
+            }
+        }
+
+    }
+
     // city / global controls
+    ImGui::SetNextItemOpen(false, ImGuiCond_FirstUseEver);
     if (ImGui::CollapsingHeader("City / Global", ImGuiTreeNodeFlags_DefaultOpen))
     {
         ImGui::SliderFloat("City Radius", &uiCityRadius, 10.0f, 200.0f, "%.1f");
-        ImGui::SliderFloat("Seed Jitter (deg)", &uiSeedJitterDeg, 0.0f, 60.0f, "%.1f");
-        ImGui::SliderFloat("Branch Turn (deg)", &uiBranchTurnDeg, 15.0f, 90.0f, "%.1f");
+        //ImGui::SliderFloat("Seed Jitter (deg)", &uiSeedJitterDeg, 0.0f, 60.0f, "%.1f");
+        //ImGui::SliderFloat("Branch Turn (deg)", &uiBranchTurnDeg, 15.0f, 90.0f, "%.1f");
         ImGui::SliderInt("Max Iterations", &uiMaxIterations, 500, 50000);
     }
 
-    //building
+    //building footprint
+    ImGui::SetNextItemOpen(false, ImGuiCond_FirstUseEver);
+    if (ImGui::CollapsingHeader("Building Footprint", ImGuiTreeNodeFlags_DefaultOpen))
+    {
     ImGui::Separator();
     ImGui::SliderFloat("Building Setback Front", &mLotParams.buildingSetbackFront, 0.0f, 2.0f, "%.2f");
     ImGui::SliderFloat("Building Setback Side",  &mLotParams.buildingSetbackSide,  0.0f, 2.0f, "%.2f");
     ImGui::SliderFloat("Building Setback Back",  &mLotParams.buildingSetbackBack,  0.0f, 2.0f, "%.2f");
-    ImGui::SliderFloat("Setback Jitter",&mLotParams.buildingSetBackJitter,0.0f, 0.5f, "%.2f");
+    //ImGui::SliderFloat("Setback Jitter",&mLotParams.buildingSetBackJitter,0.0f, 0.5f, "%.2f");
     ImGui::SliderFloat("Coverage Min",  &mLotParams.buildingCoverageMin,  0.05f, 0.9f, "%.2f");
     ImGui::SliderFloat("Coverage Max",  &mLotParams.buildingCoverageMax,  0.05f, 0.9f, "%.2f");
+    }
     
     //grid controls
+    ImGui::SetNextItemOpen(false, ImGuiCond_FirstUseEver);
     if (ImGui::CollapsingHeader("Grid", ImGuiTreeNodeFlags_DefaultOpen))
     {
         ImGui::SliderFloat("Gridness", &uiGridness, 0.0f, 1.0f);
@@ -325,15 +384,17 @@ void Gui::DrawGUI()
         uiGridAngleStep = angleSteps[angleStepIndex];
     }
     // highway controls
+    ImGui::SetNextItemOpen(false, ImGuiCond_FirstUseEver);
     if (ImGui::CollapsingHeader("Highways", ImGuiTreeNodeFlags_DefaultOpen))
     {
-        ImGui::SliderInt("Initial Highway Rays", &uiInitialRays, 1, 12);
+        ImGui::SliderInt("Initial Highway Rays", &uiInitialRays, 2, 4);
         ImGui::SliderInt("Max Highways", &uiMaxHighwaySegments, 0, 400);
         ImGui::SliderFloat("Highway Branch Prob", &uiHighwayBranchProbability, 0.0f, 1.0f, "%.2f");
         ImGui::SliderFloat("Highway Length", &uiHighwayLength, 2.0f, 50.0f, "%.1f");
         ImGui::SliderFloat("Highway Priority Weight", &uiHighwayPriorityWeight, 0.1f, 6.0f, "%.2f");
     }
     //street controls
+    ImGui::SetNextItemOpen(false, ImGuiCond_FirstUseEver);
     if (ImGui::CollapsingHeader("Streets", ImGuiTreeNodeFlags_DefaultOpen))
     {
         ImGui::SliderInt("Max Street", &uiMaxStreetSegments, 0,8000);
@@ -344,17 +405,18 @@ void Gui::DrawGUI()
     }
 
     //loop controls
-    if (ImGui::CollapsingHeader("Loops / Parcels", ImGuiTreeNodeFlags_DefaultOpen))
-    {
-        ImGui::SliderFloat("Loop Close Chance", &uiLoopCloseChance, 0.0f, 1.0f, "%.2f");
-        ImGui::SliderFloat("Loop Close Radius", &uiLoopCloseRadius, 1.0f, 60.0f, "%.1f");
-    }
+    // if (ImGui::CollapsingHeader("Loops / Parcels", ImGuiTreeNodeFlags_DefaultOpen))
+    // {
+    //     ImGui::SliderFloat("Loop Close Chance", &uiLoopCloseChance, 0.0f, 1.0f, "%.2f");
+    //     ImGui::SliderFloat("Loop Close Radius", &uiLoopCloseRadius, 1.0f, 60.0f, "%.1f");
+    // }
 
     //lots/urbanization
+    ImGui::SetNextItemOpen(false, ImGuiCond_FirstUseEver);
     if (ImGui::CollapsingHeader("Lots / Urbanization", ImGuiTreeNodeFlags_DefaultOpen))
     {
         ImGui::SliderFloat("Global Urbanization", &mLotParams.globalUrbanization, 0.0f, 1.0f, "%.2f");
-        ImGui::SliderFloat("Global Bias Strength", &mLotParams.globalBiasStrength, 0.0f, 1.0f, "%.2f");
+        //ImGui::SliderFloat("Global Bias Strength", &mLotParams.globalBiasStrength, 0.0f, 1.0f, "%.2f");
 
         ImGui::Separator();
         ImGui::SliderFloat("Urban Threshold", &mLotParams.urbanThreshold, 0.0f, 1.0f, "%.2f");
@@ -436,6 +498,7 @@ bool Gui::ConsumeExportRequest(std::string& outDir,
 
 void Gui::SetLastExportResult(bool ok, const std::string& fullPath)
 {
+    mHasLastExport = true;
     mLastExportOk = ok;
     mLastExportPath = fullPath;
 }

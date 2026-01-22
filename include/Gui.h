@@ -37,8 +37,12 @@ private:
     char mExportDir[256] = "";
 
     //export result feedback
+    bool mHasLastExport = false;
     bool mLastExportOk = false;
     std::string mLastExportPath;
+
+    //time
+    double mLastGenerationMs = -1.0;
 
     //params
     road::LotParams mLotParams;
@@ -48,6 +52,8 @@ public:
     Gui() = default;
     ~Gui() = default;
 
+    double GetLastGenerationMs() const { return mLastGenerationMs; }
+
     // export API for main.cpp
     bool ConsumeExportRequest(std::string& outDir,
                               std::string& outBaseName,
@@ -55,12 +61,15 @@ public:
 
     void SetLastExportResult(bool ok, const std::string& fullPath);
 
+    void SetLastGenerationMs(double ms) { mLastGenerationMs = ms; }
+
     // init / frame
     bool Initialize_GUI(GLFWwindow *window, const char *glslVersion = "#version 330");
     void BeginFrameGUI();
     void DrawGUI();
     void EndFrameGUI();
     void ShutdownGUI();
+    
 
     // getters
     bool Is3DEnabled() const { return mEnable3D; }

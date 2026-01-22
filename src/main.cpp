@@ -15,6 +15,7 @@
 #include "backends/imgui_impl_glfw.h"
 #include "backends/imgui_impl_opengl3.h"
 #include "imguiThemes.h"
+#include <chrono>
 
 //main project dependencies
 #include "Primitives.h"
@@ -35,6 +36,7 @@
 
 //global Y axis variable for zooming in/out control.
 static float gScrollY = 0.0f;
+double gLastGenerationMs = 0.0;
 
 //struct definitions
 struct CityContext
@@ -550,6 +552,8 @@ namespace
 		glfwPollEvents();
 	}
 
+
+
 	//main generate function
 	void GenerateCityIfRequested(
 			Gui& gui,
@@ -587,9 +591,15 @@ namespace
 			if (!gui.WantsGenerate())
 				return;
 
+			
+
 			// 1) Pull params from GUI
 			roadParams = gui.GetParams();
 			PrintRoadParams(roadParams);
+
+			//start timer
+			using Clock = std::chrono::high_resolution_clock;
+			auto t0 = Clock::now();
 
 			// 2) Generate road network
 			roadNet = roadGen.Generate(roadParams);
@@ -617,6 +627,10 @@ namespace
 				lotLineVerts, sidewalkLineVerts, gardenLineVerts, footprintLineVerts, buildingTriVerts,
 				lotLines, sidewalkLines, gardenLines, footprintLines,
 				buildingMesh);
+
+			auto t1 = Clock::now();
+			gLastGenerationMs = std::chrono::duration<double, std::milli>(t1 - t0).count();
+			gui.SetLastGenerationMs(gLastGenerationMs);
 	}
 
 }
