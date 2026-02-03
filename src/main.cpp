@@ -32,6 +32,7 @@
 #include "Export/CityExporter.h"
 #include "Gui.h"
 #include <Shader.h>
+#include "Skybox.h"
 
 
 //global Y axis variable for zooming in/out control.
@@ -336,9 +337,9 @@ namespace
 		last = now;
 
 		glfwGetFramebufferSize(window, &frameCTX.w, &frameCTX.h);
-		float aspect = (frameCTX.h == 0) ? 1.0f : (float)frameCTX.w / (float)frameCTX.h;
+		frameCTX.aspect = (frameCTX.h == 0) ? 1.0f : (float)frameCTX.w / (float)frameCTX.h;
 
-		frameCTX.viewProjection = camera.GetVP(aspect);
+		frameCTX.viewProjection = camera.GetVP(frameCTX.aspect);
 		return frameCTX;
 	}
 
@@ -737,6 +738,13 @@ int main(void)
 	Shader primShader("../include/basic.vert", "../include/basic.frag");
 	Shader lineShader("../include/line.vert", "../include/line.frag");
 
+	//Skybox initilization
+	Skybox skybox;
+	if (!skybox.Initialize("../assets/textures/SkyBox/Standard-Cube-Map"))
+	{
+		std::cout << "Skybox init failed. \n";
+	}
+
 	//initialization block of all 
 	if (!highwayLines.Initialize_Road() || !streetLines.Initialize_Road() || 
 		!lotLines.Initialize_Road() || !sidewalkLines.Initialize_Road()
@@ -771,6 +779,9 @@ while (!glfwWindowShouldClose(window))
 	//input + viewport
 	HandlePlatformInputAndViewport(window);
 
+	//Draw skybox scene
+	skybox.Draw(camera, frame.aspect, is3D);
+
 	//camera per-frame update + controls
 	UpdateCameraPerFrame(camera, window, frame.deltaTime, is3D);
 
@@ -800,6 +811,7 @@ while (!glfwWindowShouldClose(window))
 
 }
 	//all shutdowns
+	skybox.Shutdown();
 	highwayLines.Shutdown_Road();
 	streetLines.Shutdown_Road();
 	primitives.Shutdown_Prim();
