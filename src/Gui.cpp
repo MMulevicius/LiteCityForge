@@ -22,8 +22,18 @@ bool Gui::Initialize_GUI(GLFWwindow *window, const char* glslVersion)
     //IO struct keyboard/mouse config
     ImGuiIO& io = ImGui::GetIO(); (void)io;
 
+    //enable docking
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+
     //set theme is dark
     ImGui::StyleColorsDark();
+
+    if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+    {
+        ImGuiStyle& style = ImGui::GetStyle();
+        style.WindowRounding = 0.0f;
+        style.Colors[ImGuiCol_WindowBg].w = 1.0f;
+    }
 
     //connects ImGui to GLFW and sets up OpenGL rendering backend
     if(!ImGui_ImplGlfw_InitForOpenGL(mWindow, true)) return false;
@@ -48,8 +58,44 @@ void Gui::DrawGUI()
 {
     
     if(!mInitialized) return;
+
+    //docking config
+    ImGuiIO& io = ImGui::GetIO();
+    if (io.ConfigFlags & ImGuiConfigFlags_DockingEnable)
+    {
+        static ImGuiDockNodeFlags dockspace_flags =
+            ImGuiDockNodeFlags_PassthruCentralNode |
+            ImGuiDockNodeFlags_NoDockingInCentralNode;
+
+        ImGuiWindowFlags host_window_flags =
+            ImGuiWindowFlags_NoDocking |
+            ImGuiWindowFlags_NoTitleBar |
+            ImGuiWindowFlags_NoCollapse |
+            ImGuiWindowFlags_NoResize |
+            ImGuiWindowFlags_NoMove |
+            ImGuiWindowFlags_NoBringToFrontOnFocus |
+            ImGuiWindowFlags_NoNavFocus |
+            ImGuiWindowFlags_NoBackground; 
+
+        const ImGuiViewport* viewport = ImGui::GetMainViewport();
+        ImGui::SetNextWindowPos(viewport->Pos);
+        ImGui::SetNextWindowSize(viewport->Size);
+        ImGui::SetNextWindowViewport(viewport->ID);
+
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+
+        ImGui::Begin("DockSpaceHost", nullptr, host_window_flags);
+        ImGui::PopStyleVar(3);
+
+        ImGuiID dockspace_id = ImGui::GetID("MainDockSpace");
+        ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags);
+
+        ImGui::End();
+    }
     //set default size and position of the GUI. Original was 350x500
-    ImGui::SetNextWindowSize(ImVec2(600, 700), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(600, 700), ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowPos(ImVec2(20, 20), ImGuiCond_FirstUseEver);
 
     //miscellaneous
@@ -444,6 +490,15 @@ void Gui::EndFrameGUI ()
 
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
+    ImGuiIO& io = ImGui::GetIO();
+    if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+    {
+        GLFWwindow* backupCurrentContext = glfwGetCurrentContext();
+        ImGui::UpdatePlatformWindows();
+        ImGui::RenderPlatformWindowsDefault();
+        glfwMakeContextCurrent(backupCurrentContext);
+    }
 
 }
 
