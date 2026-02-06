@@ -223,6 +223,7 @@ namespace
 		std::vector<glm::vec3>& gardenLineVerts,
 		std::vector<glm::vec3>& footprintLineVerts,
 		std::vector<glm::vec3>& buildingTriVerts,
+		std::vector<glm::vec3>& buildingQuadVerts,
 		road::LineRenderer& lotLines,
 		road::LineRenderer& sidewalkLines,
 		road::LineRenderer& gardenLines,
@@ -233,23 +234,24 @@ namespace
 		const float baseY = 0.03f;
 		const float floorH = 0.35f;
 
-
-
 		road::BuildLotLineVerts(lots, lotLineVerts, 0.02f);
 		road::BuildSidewalkLineVerts(roadNet, roadParams, sidewalkLineVerts, 0.06f);
 		road::BuildGardenLineVerts(lots, gardenLineVerts, 0.021f);
 		road::BuildFootprintLineVerts(lots, footprintLineVerts, 0.022f);
+
+		//triangles for rendering
 		road::BuildBuildingTriVerts(lots, buildingTriVerts, baseY, floorH);
 
-	
+		//quads for exporting
+		road::BuildBuildingQuadVerts(lots, buildingQuadVerts, baseY, floorH);
+
+
 		std::cout << "Building tri verts: " << buildingTriVerts.size() << "\n";
-
-
-
-		lotLines.Upload(lotLineVerts);
-		sidewalkLines.Upload(sidewalkLineVerts);
-		gardenLines.Upload(gardenLineVerts);
-		footprintLines.Upload(footprintLineVerts);
+		std::cout << "Building quad verts: " << buildingQuadVerts.size() << "\n";
+		// lotLines.Upload(lotLineVerts);
+		// sidewalkLines.Upload(sidewalkLineVerts);
+		// gardenLines.Upload(gardenLineVerts);
+		// footprintLines.Upload(footprintLineVerts);
 		buildingMesh.Upload(buildingTriVerts);
 
 
@@ -435,7 +437,8 @@ namespace
 										const std::vector<glm::vec3>& roadHighwayTris,
 										const std::vector<glm::vec3>& roadStreetTris,
 										const std::vector<glm::vec3>& sidewalkTris,
-										const std::vector<glm::vec3>& buildingTriVerts)
+										const std::vector<glm::vec3>& buildingTriVerts,
+										const std::vector<glm::vec3>& buildingQuadVerts)
 	{
 
 		std::string dir, base;
@@ -454,6 +457,7 @@ namespace
 			ex.roadStreetTris  = roadStreetTris;
 			ex.sidewalkTris    = sidewalkTris;
 			ex.buildingTris    = buildingTriVerts;
+			ex.buildingQuads   = buildingQuadVerts;
 
 			std::string outPath;
 			bool ok = false;
@@ -587,7 +591,8 @@ namespace
 			std::vector<glm::vec3>& sidewalkLineVerts,
 			std::vector<glm::vec3>& gardenLineVerts,
 			std::vector<glm::vec3>& footprintLineVerts,
-			std::vector<glm::vec3>& buildingTriVerts)
+			std::vector<glm::vec3>& buildingTriVerts,
+			std::vector<glm::vec3>& buildingQuadVerts)
 	{
 			if (!gui.WantsGenerate())
 				return;
@@ -625,7 +630,8 @@ namespace
 			// 7) Build derived geometry (lots/sidewalk/gardens/footprints/buildings) + upload
 			BuildAndUploadLotDerivedGeometry(
 				roadNet, roadParams, lots,
-				lotLineVerts, sidewalkLineVerts, gardenLineVerts, footprintLineVerts, buildingTriVerts,
+				lotLineVerts, sidewalkLineVerts, gardenLineVerts, footprintLineVerts, 
+				buildingTriVerts, buildingQuadVerts,
 				lotLines, sidewalkLines, gardenLines, footprintLines,
 				buildingMesh);
 
@@ -723,6 +729,7 @@ int main(void)
 	//building mesh variable
 	road::BuildingRenderer buildingMesh;
 	std::vector<glm::vec3> buildingTriVerts;
+	std::vector<glm::vec3> buildingQuadVerts;
 
 	//roads and sidewalks mesh variables
 	road::BuildingRenderer roadMeshHighway;
@@ -792,7 +799,7 @@ while (!glfwWindowShouldClose(window))
 	GroundContext ground = DrawGroundAndGetExtents(primitives, primShader, frame.viewProjection, city);
 
 	//export request
-	HandleExportIfRequested(gui, city, ground, roadHighwayTris, roadStreetTris, sidewalkTris, buildingTriVerts);
+	HandleExportIfRequested(gui, city, ground, roadHighwayTris, roadStreetTris, sidewalkTris, buildingTriVerts, buildingQuadVerts);
 
 	//debug lines
 	DrawDebugLinesIfEnabled(showRoads, gui, lineShader, frame.viewProjection, highwayLines, streetLines, lotLines, sidewalkLines, gardenLines, footprintLines);
@@ -801,7 +808,7 @@ while (!glfwWindowShouldClose(window))
     						roadMeshHighway, roadMeshStreet, sidewalkMesh, buildingMesh,
     						highwayLines, streetLines, lotLines, sidewalkLines, gardenLines, footprintLines,
     						roadHighwayTris, roadStreetTris, sidewalkTris,
-    						lotLineVerts, sidewalkLineVerts, gardenLineVerts, footprintLineVerts, buildingTriVerts);
+    						lotLineVerts, sidewalkLineVerts, gardenLineVerts, footprintLineVerts, buildingTriVerts, buildingQuadVerts);
 
 	HandleQuitIfRequested(gui, window);
 

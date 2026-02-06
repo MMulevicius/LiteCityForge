@@ -9,7 +9,8 @@ namespace export3d
     {
         std::string name;                
         std::string material;             
-        std::vector<glm::vec3> tris;      
+        std::vector<glm::vec3> tris;
+        std::vector<glm::vec3> quads;      
     };
 
     struct ObjMaterial

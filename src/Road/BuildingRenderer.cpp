@@ -77,6 +77,18 @@ namespace road
         v.push_back(c);
     }
 
+    static inline void AddQuad(std::vector<glm::vec3>& v,
+                                const glm::vec3& a,
+                                const glm::vec3& b,
+                                const glm::vec3& c,
+                                const glm::vec3& d)
+    {
+        v.push_back(a);
+        v.push_back(b);
+        v.push_back(c);
+        v.push_back(d);
+    }
+
     static inline void AddQuadAsTwoTris(std::vector<glm::vec3>& v,
                                         const glm::vec3& a,
                                         const glm::vec3& b,
@@ -131,4 +143,45 @@ namespace road
             AddQuadAsTwoTris(outTriVerts, t0, t1, t2, t3);
         }
     }
+
+    void BuildBuildingQuadVerts(const LotCollection& lots,
+                            std::vector<glm::vec3>& outQuadVerts,
+                            float baseY,
+                            float floorHeight)
+    {
+        outQuadVerts.clear();
+
+        for (const auto& lot : lots.lots)
+        {
+            if (!lot.hasFootPrint) continue;
+            if (lot.footprint.size() != 4) continue;
+
+            const float h = std::max(1, lot.floors) * floorHeight;
+
+            const glm::vec2& p0 = lot.footprint[0];
+            const glm::vec2& p1 = lot.footprint[1];
+            const glm::vec2& p2 = lot.footprint[2];
+            const glm::vec2& p3 = lot.footprint[3];
+
+            glm::vec3 b0 = XZToVec3(p0, baseY);
+            glm::vec3 b1 = XZToVec3(p1, baseY);
+            glm::vec3 b2 = XZToVec3(p2, baseY);
+            glm::vec3 b3 = XZToVec3(p3, baseY);
+
+            glm::vec3 t0 = XZToVec3(p0, baseY + h);
+            glm::vec3 t1 = XZToVec3(p1, baseY + h);
+            glm::vec3 t2 = XZToVec3(p2, baseY + h);
+            glm::vec3 t3 = XZToVec3(p3, baseY + h);
+
+            // walls (quads)
+            AddQuad(outQuadVerts, b0, b1, t1, t0);
+            AddQuad(outQuadVerts, b1, b2, t2, t1);
+            AddQuad(outQuadVerts, b2, b3, t3, t2);
+            AddQuad(outQuadVerts, b3, b0, t0, t3);
+
+            // roof (quad)
+            AddQuad(outQuadVerts, t0, t1, t2, t3);
+        }
+    }
+
 }

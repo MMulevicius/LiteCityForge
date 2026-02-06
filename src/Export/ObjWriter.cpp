@@ -37,7 +37,7 @@ namespace export3d
         if (!out.is_open()) return false;
 
         out << "# LiteCityForge OBJ export\n";
-        out << "# Triangles only (3 verts per face)\n";
+        out << "# Mixed faces: traingle for meshes quads for buildings\n";
         if (!mtlFileName.empty())
             out << "mtllib " << mtlFileName << "\n";
 
@@ -46,45 +46,75 @@ namespace export3d
 
         for (const auto& mesh : meshes)
         {
-            if (mesh.tris.empty()) continue;
+            if (mesh.tris.empty() && mesh.quads.empty()) 
+                continue;
 
             out << "\no " << mesh.name << "\n";
             out << "s off\n";
             if (!mesh.material.empty())
                 out << "usemtl " << mesh.material << "\n";
 
-            // vertices
+            const int quadCount = (int)mesh.quads.size() / 4;
+            const int triCount = (int)mesh.tris.size() / 3;
+
+            // vertices (quads first, then tris)
+            for (const auto& v : mesh.quads)
+                out << "v " << v.x << " " << v.y << " " << v.z << "\n";
             for (const auto& v : mesh.tris)
                 out << "v " << v.x << " " << v.y << " " << v.z << "\n";
 
-            // normals: 1 normal per triangle
-            const int triCount = (int)mesh.tris.size() / 3;
+
+            // normals: 1 normal per face (quads first, then tris)
+            for (int q = 0; q < quadCount; ++q)
+            {
+                const glm::vec3& a = mesh.quads[q*4 + 0];
+                const glm::vec3& b = mesh.quads[q*4 + 1];
+                const glm::vec3& c = mesh.quads[q*4 + 2];
+                glm::vec3 n = SafeNormalize(glm::cross(c - a, b - a));
+                out << "vn " << n.x << " " << n.y << " " << n.z << "\n";
+            }
+
             for (int t = 0; t < triCount; ++t)
             {
                 const glm::vec3& a = mesh.tris[t*3 + 0];
                 const glm::vec3& b = mesh.tris[t*3 + 1];
                 const glm::vec3& c = mesh.tris[t*3 + 2];
-                glm::vec3 n = SafeNormalize(glm::cross(b - a, c - a));
+                glm::vec3 n = SafeNormalize(glm::cross(c - a, b - a));
                 out << "vn " << n.x << " " << n.y << " " << n.z << "\n";
             }
 
-            // faces
+            // faces quads first (f a d c b), then tris (f v0 v2 v1)
+            for (int q = 0; q < quadCount; ++q)
+            {
+                int v0 = vBase + q*4 + 0;
+                int v1 = vBase + q*4 + 1;
+                int v2 = vBase + q*4 + 2;
+                int v3 = vBase + q*4 + 3;
+                int vn = nBase + q;
+
+                out << "f "
+                    << v0 << "//" << vn << " "
+                    << v3 << "//" << vn << " "
+                    << v2 << "//" << vn << " "
+                    << v1 << "//" << vn << "\n";
+            }
+
             for (int t = 0; t < triCount; ++t)
             {
+                const int vOffset = quadCount * 4;
                 int v0 = vBase + t*3 + 0;
                 int v1 = vBase + t*3 + 1;
                 int v2 = vBase + t*3 + 2;
                 int vn = nBase + t;
 
-                // f v//vn v//vn v//vn
                 out << "f "
                     << v0 << "//" << vn << " "
-                    << v1 << "//" << vn << " "
-                    << v2 << "//" << vn << "\n";
+                    << v2 << "//" << vn << " "
+                    << v1 << "//" << vn << "\n";
             }
 
-            vBase += (int)mesh.tris.size();
-            nBase += triCount;
+            vBase += (int)mesh.quads.size() + (int)mesh.tris.size();
+            nBase += quadCount + triCount;
         }
 
         return true;

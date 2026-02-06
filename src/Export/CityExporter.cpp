@@ -65,7 +65,7 @@ namespace export3d
         meshes.push_back({"Roads_Highway", "mat_hwy", in.roadHighwayTris});
         meshes.push_back({"Roads_Street", "mat_street", in.roadStreetTris});
         meshes.push_back({"Sidewalks", "mat_sidewalk", in.sidewalkTris});
-        meshes.push_back({"Buildings", "mat_building", in.buildingTris});
+        meshes.push_back({"Buildings", "mat_building", {}, in.buildingQuads});
 
         const std::string mtlFileName = baseName + ".mtl"; 
         if (!ObjWriter::WriteObj(objPath, mtlFileName, meshes))

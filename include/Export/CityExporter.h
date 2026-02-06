@@ -15,6 +15,7 @@ namespace export3d
         std::vector<glm::vec3> roadStreetTris;
         std::vector<glm::vec3> sidewalkTris;
         std::vector<glm::vec3> buildingTris;
+        std::vector<glm::vec3> buildingQuads;
     };
 
     class CityExporter

@@ -32,4 +32,9 @@ namespace road
                                std::vector<glm::vec3>& outTriVerts,
                                float baseY,
                                float floorHeight);
+    //build mesh with quads only
+    void BuildBuildingQuadVerts(const LotCollection& lots,
+                                std::vector<glm::vec3>& outQuadVerts,
+                                float baseY,
+                                float floorHeight);
 }
