@@ -248,10 +248,10 @@ namespace
 
 		std::cout << "Building tri verts: " << buildingTriVerts.size() << "\n";
 		std::cout << "Building quad verts: " << buildingQuadVerts.size() << "\n";
-		// lotLines.Upload(lotLineVerts);
-		// sidewalkLines.Upload(sidewalkLineVerts);
-		// gardenLines.Upload(gardenLineVerts);
-		// footprintLines.Upload(footprintLineVerts);
+		lotLines.Upload(lotLineVerts);
+		sidewalkLines.Upload(sidewalkLineVerts);
+		gardenLines.Upload(gardenLineVerts);
+		footprintLines.Upload(footprintLineVerts);
 		buildingMesh.Upload(buildingTriVerts);
 
 
@@ -813,6 +813,13 @@ while (!glfwWindowShouldClose(window))
 	HandleQuitIfRequested(gui, window);
 
 	EndGuiFrame(gui);
+
+	if (gui.ConsumeGuiRecreateRequest())
+	{
+    gui.ShutdownGUI();
+    gui.Initialize_GUI(window, "#version 330"); 
+	}
+
 
 	PresentAndPoll(window);
 

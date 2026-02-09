@@ -22,6 +22,8 @@ bool Gui::Initialize_GUI(GLFWwindow *window, const char* glslVersion)
     //IO struct keyboard/mouse config
     ImGuiIO& io = ImGui::GetIO(); (void)io;
 
+    io.IniFilename = "imgui.ini";
+
     //enable docking
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
@@ -44,6 +46,75 @@ bool Gui::Initialize_GUI(GLFWwindow *window, const char* glslVersion)
     return true;
 }
 
+void Gui::SetFullscreen(bool enabled)
+{
+    if (!mWindow) return;
+    if (enabled == mFullscreen) return;
+
+    if (enabled)
+    {
+        // save windowed position/size so we can restore it later
+        glfwGetWindowPos(mWindow, &mWindowedX, &mWindowedY);
+        glfwGetWindowSize(mWindow, &mWindowedW, &mWindowedH);
+        mHasWindowedRect = true;
+
+        GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+        const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+
+        // fullscreen on primary monitor
+        glfwSetWindowMonitor(
+            mWindow,
+            monitor,
+            0, 0,
+            mode->width, mode->height,
+            mode->refreshRate
+        );
+    }
+    else
+    {
+        // restore previous windowed size/position (fallback if unknown)
+        const int x = mHasWindowedRect ? mWindowedX : 100;
+        const int y = mHasWindowedRect ? mWindowedY : 100;
+        const int w = mHasWindowedRect ? mWindowedW : 1280;
+        const int h = mHasWindowedRect ? mWindowedH : 800;
+
+        glfwSetWindowMonitor(mWindow, nullptr, x, y, w, h, 0);
+    }
+
+    mFullscreen = enabled;
+}
+
+bool Gui::ConsumeGuiRecreateRequest()
+{
+    bool v = mRequestGuiRecreate;
+    mRequestGuiRecreate = false;
+    return v;
+}
+
+void Gui::ResetImGuiLayout()
+{
+    ImGuiIO& io = ImGui::GetIO();
+    if (!io.IniFilename || io.IniFilename[0] == '\0')
+        return;
+
+    std::error_code ec;
+    std::filesystem::remove(io.IniFilename, ec);
+
+    mSkipDockspaceNextFrame = true;              
+    mForceMainWindowDefaultNextFrame = true;     
+    mForceSettingsWindowDefaultNextFrame = true;
+    mRequestGuiRecreate = true;                  
+}
+
+
+
+
+void Gui::ApplyUiScale()
+{
+    ImGuiIO& io = ImGui::GetIO();
+    io.FontGlobalScale = mUiScale;
+}
+
 //standard start for ImGui frame sequence
 void Gui::BeginFrameGUI()
 {
@@ -51,6 +122,10 @@ void Gui::BeginFrameGUI()
 
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
+
+    // apply UI scaling before NewFrame
+    ApplyUiScale();
+
     ImGui::NewFrame();
 }
 
@@ -94,9 +169,26 @@ void Gui::DrawGUI()
 
         ImGui::End();
     }
-    //set default size and position of the GUI. Original was 350x500
-    ImGui::SetNextWindowSize(ImVec2(600, 700), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowPos(ImVec2(20, 20), ImGuiCond_FirstUseEver);
+    else if (mSkipDockspaceNextFrame)
+    {
+        mSkipDockspaceNextFrame = false;
+    }
+    //set default size and position of the GUI. original was 350x500
+    if (mForceMainWindowDefaultNextFrame)
+    {
+        ImGui::SetNextWindowSize(ImVec2(600, 700), ImGuiCond_Always);
+        ImGui::SetNextWindowPos(ImVec2(20, 20), ImGuiCond_Always);
+
+        ImGui::SetNextWindowDockID(0, ImGuiCond_Always);
+
+        mForceMainWindowDefaultNextFrame = false;
+    }
+    else
+    {
+        ImGui::SetNextWindowSize(ImVec2(600, 700), ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowPos(ImVec2(20, 20), ImGuiCond_FirstUseEver);
+    }
+
 
     //miscellaneous
     static int uiSeed = 1337;
@@ -132,6 +224,14 @@ void Gui::DrawGUI()
     
     //title of the menu
     ImGui::Begin("LiteCityForge");
+    // settings button
+    ImGui::SameLine();
+    if (ImGui::Button(u8"⚙ Settings"))
+    {
+        mShowSettingsWindow = !mShowSettingsWindow;
+    }
+
+
     ImGui::Separator();
 
     //checkboxes
@@ -302,11 +402,10 @@ void Gui::DrawGUI()
             config.path = start;
             config.flags = ImGuiFileDialogFlags_Modal;
 
-            // IMPORTANT: "." means folder selection in older versions
             ImGuiFileDialog::Instance()->OpenDialog(
                 "ChooseExportDir",
                 "Choose Export Folder",
-                ".",        // 👈 THIS is the key
+                ".",       
                 config
             );
         }
@@ -321,16 +420,13 @@ void Gui::DrawGUI()
             {
                 std::string pickedDir;
 
-                // Prefer selection API (more reliable than GetCurrentPath for actual user choice)
-                auto selection = ImGuiFileDialog::Instance()->GetSelection(); // map<filename, fullpath>
+                auto selection = ImGuiFileDialog::Instance()->GetSelection(); 
 
                 if (!selection.empty())
                 {
-                    // Take the first selected entry
                     const std::string pickedPath = selection.begin()->second;
                     std::filesystem::path p(pickedPath);
 
-                    // If user selected a file, use its parent folder; if it's a folder, use it
                     if (std::filesystem::exists(p) && std::filesystem::is_directory(p))
                         pickedDir = p.string();
                     else
@@ -377,7 +473,6 @@ void Gui::DrawGUI()
 
 
         // status line
-        // status line (show even on failure)
         if (mHasLastExport)
         {
             if (mLastExportOk)
@@ -481,6 +576,47 @@ void Gui::DrawGUI()
     }
     
     ImGui::End();
+    
+    if (mShowSettingsWindow)
+    {
+        if (mForceSettingsWindowDefaultNextFrame)
+        {
+            ImGui::SetNextWindowSize(ImVec2(360, 200), ImGuiCond_Always);
+            ImGui::SetNextWindowPos(ImVec2(650, 40), ImGuiCond_Always); 
+            ImGui::SetNextWindowDockID(0, ImGuiCond_Always);           
+            mForceSettingsWindowDefaultNextFrame = false;
+        }
+        else
+        {
+            ImGui::SetNextWindowSize(ImVec2(360, 200), ImGuiCond_FirstUseEver);
+        }
+
+        if (ImGui::Begin("Settings", &mShowSettingsWindow))
+        {
+            ImGui::TextUnformatted("Display");
+            bool wantFullscreen = mFullscreen;
+            if (ImGui::Checkbox("Fullscreen", &wantFullscreen))
+            {
+                SetFullscreen(wantFullscreen);
+            }
+
+            ImGui::Separator();
+            ImGui::TextUnformatted("UI");
+            if (ImGui::SliderFloat("UI Scale", &mUiScale, 0.75f, 1.50f, "%.2f"))
+            {
+                ApplyUiScale();
+            }
+
+            ImGui::Separator();
+            ImGui::TextUnformatted("Layout");
+            if (ImGui::Button("Reset Layout"))
+            {
+                ResetImGuiLayout();
+            }
+        }
+
+        ImGui::End();
+    }
 
 }
 
@@ -557,6 +693,8 @@ void Gui::SetLastExportResult(bool ok, const std::string& fullPath)
     mLastExportOk = ok;
     mLastExportPath = fullPath;
 }
+
+
 
 
 

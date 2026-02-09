@@ -26,6 +26,25 @@ private:
     bool mShowGardens = false;
     bool mShowFootprints = false;
 
+    // settings window + UI
+    bool mShowSettingsWindow = false;
+    bool mFullscreen = false;
+    bool mHasWindowedRect = false;
+    bool mRequestGuiRecreate = false;
+    bool mSkipDockspaceNextFrame = false;
+    bool mForceMainWindowDefaultNextFrame = false;
+    bool mForceSettingsWindowDefaultNextFrame = false;
+
+    // UI scale
+    float mUiScale = 1.0f;
+
+    // fullscreen state + restore windowed rect
+    int mWindowedX = 100;
+    int mWindowedY = 100;
+    int mWindowedW = 1280;
+    int mWindowedH = 800;
+
+
     //camera reset one shot
     bool mWantsResetCamera = false;
 
@@ -69,6 +88,11 @@ public:
     void DrawGUI();
     void EndFrameGUI();
     void ShutdownGUI();
+
+    // settings
+    void ApplyUiScale();
+    void SetFullscreen(bool enabled);
+    void ResetImGuiLayout();
     
 
     // getters
@@ -84,6 +108,7 @@ public:
     bool WantsQuit();
 
     bool ConsumeResetCamera();
+    bool ConsumeGuiRecreateRequest();
 
     float GetCityRadius() const { return mRoadParams.cityRadius; }
     const road::LotParams& GetLotParams() const { return mLotParams; }
