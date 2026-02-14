@@ -9,6 +9,12 @@ namespace road
 {
     class LotCollection;
 
+    struct BuildingVertexPT
+    {
+        glm::vec3 pos{0.0f};
+        glm::vec2 uv{0.0f};
+    };
+
     // draws triangle meshes from a list of positions.
     class BuildingRenderer
     {
@@ -27,6 +33,30 @@ namespace road
         std::size_t VertexCount() const { return mVertexCount; }
     };
 
+        // draws triangle meshes from a list of positions+uvs.
+    class BuildingTexturedRenderer
+    {
+    private:
+        GLuint mVAO = 0;
+        GLuint mVBO = 0;
+        std::size_t mVertexCount = 0;
+
+    public:
+        bool Initialize();
+        void Shutdown();
+
+        void Upload(const std::vector<BuildingVertexPT>& triVerts);
+
+        // textureId may be 0, in which case uUseTexture should be false.
+        void Draw(const Shader& shader,
+                  const glm::mat4& vp,
+                  GLuint textureId,
+                  bool useTexture,
+                  const glm::vec3& fallbackColor) const;
+
+        std::size_t VertexCount() const { return mVertexCount; }
+    };
+
     // builds a simple extruded mesh from lot footprints: walls (4 sides), roof (2 triangles)
     void BuildBuildingTriVerts(const LotCollection& lots,
                                std::vector<glm::vec3>& outTriVerts,
@@ -37,4 +67,13 @@ namespace road
                                 std::vector<glm::vec3>& outQuadVerts,
                                 float baseY,
                                 float floorHeight);
+
+    void BuildBuildingTriVertsTexturedByZone(const LotCollection& lots,
+                                            std::vector<BuildingVertexPT>& outUrban,
+                                            std::vector<BuildingVertexPT>& outSuburban,
+                                            std::vector<BuildingVertexPT>& outRural,
+                                            float baseY,
+                                            float floorHeight,
+                                            float uvMetersPerTile = 2.0f);
+    
 }

@@ -224,11 +224,17 @@ namespace
 		std::vector<glm::vec3>& footprintLineVerts,
 		std::vector<glm::vec3>& buildingTriVerts,
 		std::vector<glm::vec3>& buildingQuadVerts,
+		std::vector<road::BuildingVertexPT>& buildingUrbanPT,
+		std::vector<road::BuildingVertexPT>& buildingSuburbanPT,
+		std::vector<road::BuildingVertexPT>& buildingRuralPT,
 		road::LineRenderer& lotLines,
 		road::LineRenderer& sidewalkLines,
 		road::LineRenderer& gardenLines,
 		road::LineRenderer& footprintLines,
-		road::BuildingRenderer& buildingMesh)
+		road::BuildingRenderer& buildingMesh,
+		road::BuildingTexturedRenderer& buildingMeshUrban,
+		road::BuildingTexturedRenderer& buildingMeshSuburban,
+		road::BuildingTexturedRenderer& buildingMeshRural)
 	{
 
 		const float baseY = 0.03f;
@@ -245,6 +251,9 @@ namespace
 		//quads for exporting
 		road::BuildBuildingQuadVerts(lots, buildingQuadVerts, baseY, floorH);
 
+		road::BuildBuildingTriVertsTexturedByZone(lots, buildingUrbanPT, buildingSuburbanPT, buildingRuralPT,
+													baseY, floorH, 2.0f);
+
 
 		std::cout << "Building tri verts: " << buildingTriVerts.size() << "\n";
 		std::cout << "Building quad verts: " << buildingQuadVerts.size() << "\n";
@@ -253,6 +262,9 @@ namespace
 		gardenLines.Upload(gardenLineVerts);
 		footprintLines.Upload(footprintLineVerts);
 		buildingMesh.Upload(buildingTriVerts);
+		buildingMeshUrban.Upload(buildingUrbanPT);
+		buildingMeshSuburban.Upload(buildingSuburbanPT);
+		buildingMeshRural.Upload(buildingRuralPT);
 
 
 		std::cout << "Lots count: " << lots.lots.size() << "\n";
@@ -294,6 +306,90 @@ namespace
 
 		gScrollY += (float)yoffset;
 	}
+
+	GLuint LoadTexture2D(const std::string& path)
+	{
+		int w=0,h=0,channels=0;
+		stbi_set_flip_vertically_on_load(true);
+		unsigned char* data = stbi_load(path.c_str(), &w, &h, &channels, 0);
+		if (!data) return 0;
+
+		GLenum format = (channels == 4) ? GL_RGBA : GL_RGB;
+
+		GLuint tex=0;
+		glGenTextures(1,&tex);
+		glBindTexture(GL_TEXTURE_2D, tex);
+		glTexImage2D(GL_TEXTURE_2D, 0, format, w, h, 0, format, GL_UNSIGNED_BYTE, data);
+		glGenerateMipmap(GL_TEXTURE_2D);
+
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+		glBindTexture(GL_TEXTURE_2D, 0);
+		stbi_image_free(data);
+		return tex;
+	}
+
+	void SafeDeleteTexture(GLuint& tex)
+	{
+		if (tex != 0)
+		{
+			glDeleteTextures(1, &tex);
+			tex = 0;
+		}
+	}
+
+	void HandleBuildingTextureRequests(
+		Gui& gui,
+		GLuint& urbanTex, GLuint& suburbanTex, GLuint& ruralTex,
+		bool& useUrban, bool& useSuburban, bool& useRural)
+	{
+		std::string path;
+
+		// Urban
+		if (gui.ConsumeBuildingTextureApply(road::LotZone::Urban, path))
+		{
+			std::cout << "Loaded urbanTex=" << urbanTex << "\n";
+			SafeDeleteTexture(urbanTex);
+			urbanTex = LoadTexture2D(path);
+			useUrban = (urbanTex != 0);
+		}
+		if (gui.ConsumeBuildingTextureClear(road::LotZone::Urban))
+		{
+			SafeDeleteTexture(urbanTex);
+			useUrban = false;
+		}
+
+		// Suburban
+		if (gui.ConsumeBuildingTextureApply(road::LotZone::Suburban, path))
+		{
+			SafeDeleteTexture(suburbanTex);
+			suburbanTex = LoadTexture2D(path);
+			useSuburban = (suburbanTex != 0);
+		}
+		if (gui.ConsumeBuildingTextureClear(road::LotZone::Suburban))
+		{
+			SafeDeleteTexture(suburbanTex);
+			useSuburban = false;
+		}
+
+		// Rural
+		if (gui.ConsumeBuildingTextureApply(road::LotZone::Rural, path))
+		{
+			SafeDeleteTexture(ruralTex);
+			ruralTex = LoadTexture2D(path);
+			useRural = (ruralTex != 0);
+		}
+		if (gui.ConsumeBuildingTextureClear(road::LotZone::Rural))
+		{
+			SafeDeleteTexture(ruralTex);
+			useRural = false;
+		}
+	}
+
+
 	//city context
 	CityContext ResolveCityContext(bool showRoads, const Gui& gui, const road::RoadParams& roadParams) {
 
@@ -384,11 +480,17 @@ namespace
 		}
 	}
 
-	void Draw3DMeshesIfEnabled (bool is3D, Shader& lineShader, const glm::mat4& viewProjection,
+	void Draw3DMeshesIfEnabled (bool is3D, Shader& lineShader, Shader& buildingTexShader,
+										const glm::mat4& viewProjection,
 										road::BuildingRenderer& roadMeshStreet,
 										road::BuildingRenderer& roadMeshHighway,
 										road::BuildingRenderer& sidewalkMesh,
-										road::BuildingRenderer& buildingMesh) 
+										road::BuildingRenderer& buildingMesh,
+										road::BuildingTexturedRenderer& buildingMeshUrban,
+										road::BuildingTexturedRenderer& buildingMeshSuburban,
+										road::BuildingTexturedRenderer& buildingMeshRural,
+										GLuint urbanTex, GLuint suburbanTex, GLuint ruralTex,
+										bool useUrban, bool useSuburban, bool useRural) 
 	{
 			if (!is3D)
 			{
@@ -411,10 +513,26 @@ namespace
 			sidewalkMesh.Draw(lineShader, viewProjection);
 
 			//buildings
-			glUniform3f(glGetUniformLocation(lineShader.ID, "uColor"), 0.75f, 0.75f, 0.78f);
-			buildingMesh.Draw(lineShader, viewProjection);
+			const bool anyTextured = (useUrban || useSuburban || useRural);
 
+			if(anyTextured)
+			{
 
+				const glm::vec3 urbanFallback(0.78f, 0.78f, 0.80f);
+				const glm::vec3 subFallback  (0.75f, 0.75f, 0.78f);
+				const glm::vec3 rurFallback  (0.72f, 0.72f, 0.75f);
+
+				buildingMeshUrban.Draw(buildingTexShader, viewProjection, urbanTex, useUrban, urbanFallback);
+				buildingMeshSuburban.Draw(buildingTexShader, viewProjection, suburbanTex, useSuburban, subFallback);
+				buildingMeshRural.Draw(buildingTexShader, viewProjection, ruralTex, useRural, rurFallback);
+			}
+			else
+			{
+				lineShader.use();
+				glUniform3f(glGetUniformLocation(lineShader.ID, "uColor"), 0.75f, 0.75f, 0.78f);
+				buildingMesh.Draw(lineShader, viewProjection);
+			}
+		
 	}
 	//ground and returns for export
 	GroundContext DrawGroundAndGetExtents(Primitives& primitives, Shader& primShader, const glm::mat4& viewProjection, const CityContext& cityCTX) {
@@ -574,6 +692,10 @@ namespace
 			road::BuildingRenderer& roadMeshStreet,
 			road::BuildingRenderer& sidewalkMesh,
 			road::BuildingRenderer& buildingMesh,
+			road::BuildingTexturedRenderer& buildingMeshUrban,
+			road::BuildingTexturedRenderer& buildingMeshSuburban,
+			road::BuildingTexturedRenderer& buildingMeshRural,
+
 
 			// Line renderers:
 			road::LineRenderer& highwayLines,
@@ -592,7 +714,12 @@ namespace
 			std::vector<glm::vec3>& gardenLineVerts,
 			std::vector<glm::vec3>& footprintLineVerts,
 			std::vector<glm::vec3>& buildingTriVerts,
-			std::vector<glm::vec3>& buildingQuadVerts)
+			std::vector<glm::vec3>& buildingQuadVerts,
+
+			//textures:
+			std::vector<road::BuildingVertexPT>& buildingUrbanPT,
+			std::vector<road::BuildingVertexPT>& buildingSubUrbanPT,
+			std::vector<road::BuildingVertexPT>& buildingRuralPT)
 	{
 			if (!gui.WantsGenerate())
 				return;
@@ -631,9 +758,9 @@ namespace
 			BuildAndUploadLotDerivedGeometry(
 				roadNet, roadParams, lots,
 				lotLineVerts, sidewalkLineVerts, gardenLineVerts, footprintLineVerts, 
-				buildingTriVerts, buildingQuadVerts,
-				lotLines, sidewalkLines, gardenLines, footprintLines,
-				buildingMesh);
+				buildingTriVerts, buildingQuadVerts, buildingUrbanPT, buildingSubUrbanPT,
+				buildingRuralPT, lotLines, sidewalkLines, gardenLines, footprintLines,
+				buildingMesh,buildingMeshUrban, buildingMeshSuburban, buildingMeshRural);
 
 			auto t1 = Clock::now();
 			gLastGenerationMs = std::chrono::duration<double, std::milli>(t1 - t0).count();
@@ -740,10 +867,24 @@ int main(void)
 	std::vector<glm::vec3> roadStreetTris;
 	std::vector<glm::vec3> sidewalkTris;
 
+	//building texture variables
+	road::BuildingTexturedRenderer buildingMeshUrban;
+	road::BuildingTexturedRenderer buildingMeshSuburban;
+	road::BuildingTexturedRenderer buildingMeshRural;
+
+	std::vector<road::BuildingVertexPT> buildingUrbanPT;
+	std::vector<road::BuildingVertexPT> buildingSuburbanPT;
+	std::vector<road::BuildingVertexPT> buildingRuralPT;
+
+	GLuint urbanTex = 0, suburbanTex = 0, ruralTex = 0;
+	bool useUrban = false, useSuburban = false, useRural = false;
+
+
 	
-	//two shaders: one for primitives (such as ground), the other is for line rendering of triangles
+	//three shaders: one for primitives (such as ground), line rendering of triangles, building textures
 	Shader primShader("../include/basic.vert", "../include/basic.frag");
 	Shader lineShader("../include/line.vert", "../include/line.frag");
+	Shader buildingTexShader("../include/building_tex.vert", "../include/building_tex.frag");
 
 	//Skybox initilization
 	Skybox skybox;
@@ -757,7 +898,8 @@ int main(void)
 		!lotLines.Initialize_Road() || !sidewalkLines.Initialize_Road()
 		|| !gardenLines.Initialize_Road() || !footprintLines.Initialize_Road()
 		|| !buildingMesh.Initialize() || !roadMeshHighway.Initialize() || !roadMeshStreet.Initialize()
-		|| !sidewalkMesh.Initialize())
+		|| !sidewalkMesh.Initialize() || !buildingMeshUrban.Initialize() || !buildingMeshSuburban.Initialize() 
+		|| !buildingMeshRural.Initialize())
 	{
 		std::cout << "Failed to init LineRenderer for highways/streets/lots/roads/garden/footprints\n";
 		return -1;
@@ -773,6 +915,10 @@ while (!glfwWindowShouldClose(window))
 {
 	//GUI
 	BeginGuiFrame(gui);
+
+	// texture handling
+	HandleBuildingTextureRequests(gui, urbanTex, suburbanTex, ruralTex, useUrban, useSuburban, useRural);
+
 
 	//choose city radius and center based on wheter roads are shown
 	CityContext city = ResolveCityContext(showRoads, gui, roadParams);
@@ -793,7 +939,10 @@ while (!glfwWindowShouldClose(window))
 	UpdateCameraPerFrame(camera, window, frame.deltaTime, is3D);
 
 	//draws 3D meshes (only when is3D)
-	Draw3DMeshesIfEnabled(is3D, lineShader, frame.viewProjection, roadMeshStreet, roadMeshHighway, sidewalkMesh, buildingMesh);
+	Draw3DMeshesIfEnabled(is3D, lineShader, buildingTexShader, frame.viewProjection, roadMeshStreet,
+						  roadMeshHighway, sidewalkMesh, buildingMesh, buildingMeshUrban,
+						  buildingMeshSuburban, buildingMeshRural, urbanTex, suburbanTex,
+						  ruralTex, useUrban, useSuburban, useRural);
 
 	//ground and allows export
 	GroundContext ground = DrawGroundAndGetExtents(primitives, primShader, frame.viewProjection, city);
@@ -806,9 +955,11 @@ while (!glfwWindowShouldClose(window))
 
 	GenerateCityIfRequested(gui, showRoads, roadGen, lotGen, roadParams, roadNet, lots,
     						roadMeshHighway, roadMeshStreet, sidewalkMesh, buildingMesh,
+							buildingMeshUrban, buildingMeshSuburban, buildingMeshRural,
     						highwayLines, streetLines, lotLines, sidewalkLines, gardenLines, footprintLines,
     						roadHighwayTris, roadStreetTris, sidewalkTris,
-    						lotLineVerts, sidewalkLineVerts, gardenLineVerts, footprintLineVerts, buildingTriVerts, buildingQuadVerts);
+    						lotLineVerts, sidewalkLineVerts, gardenLineVerts, footprintLineVerts, buildingTriVerts, buildingQuadVerts,
+							buildingUrbanPT, buildingSuburbanPT, buildingRuralPT);
 
 	HandleQuitIfRequested(gui, window);
 

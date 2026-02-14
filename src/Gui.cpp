@@ -231,6 +231,10 @@ void Gui::DrawGUI()
         mShowSettingsWindow = !mShowSettingsWindow;
     }
 
+    if (ImGui::Button("Building Materials"))
+    {
+    mShowBuildingMaterialsWindow = !mShowBuildingMaterialsWindow;
+    }
 
     ImGui::Separator();
 
@@ -618,7 +622,90 @@ void Gui::DrawGUI()
         ImGui::End();
     }
 
+    if (mShowBuildingMaterialsWindow)
+    {
+        ImGui::SetNextWindowSize(ImVec2(520, 320), ImGuiCond_FirstUseEver);
+        if (ImGui::Begin("Building Materials", &mShowBuildingMaterialsWindow))
+        {
+            auto DrawZone = [&](road::LotZone zone, const char* label, const char* dialogKey)
+            {
+                TextureSlot& slot = (zone == road::LotZone::Urban)
+                    ? mBuildingTextures[0]
+                    : (zone == road::LotZone::Suburban)
+                        ? mBuildingTextures[1]
+                        : mBuildingTextures[2];
+
+                ImGui::SeparatorText(label);
+
+                if (slot.isImported && slot.importedPath[0] != '\0')
+                    ImGui::TextWrapped("Imported: %s", slot.importedPath);
+                else
+                    ImGui::TextUnformatted("Imported: (none)");
+
+                if (ImGui::Button((std::string("Import##") + dialogKey).c_str()))
+                {
+                    IGFD::FileDialogConfig config;
+                    config.flags = ImGuiFileDialogFlags_Modal;
+                    config.path = std::filesystem::current_path().string();
+
+                    ImGuiFileDialog::Instance()->OpenDialog(
+                        dialogKey,
+                        "Choose Texture",
+                        "Image files{.png,.jpg,.jpeg,.bmp,.tga},.*",
+                        config
+                    );
+                }
+
+                ImGui::SameLine();
+                const bool canApply = slot.isImported && slot.importedPath[0] != '\0';
+                if (!canApply) ImGui::BeginDisabled();
+                if (ImGui::Button((std::string("Apply##") + dialogKey).c_str()))
+                {
+                    slot.requestApply = true;
+                    slot.isApplied = true;
+                }
+                if (!canApply) ImGui::EndDisabled();
+
+                ImGui::SameLine();
+                if (ImGui::Button((std::string("Clear##") + dialogKey).c_str()))
+                {
+                    slot.requestClear = true;
+                    slot.isImported = false;
+                    slot.isApplied = false;
+                    slot.importedPath[0] = '\0';
+                }
+
+                ImGui::SetNextWindowSize(ImVec2(900, 550), ImGuiCond_FirstUseEver);
+                if (ImGuiFileDialog::Instance()->Display(dialogKey))
+                {
+                    if (ImGuiFileDialog::Instance()->IsOk())
+                    {
+                        auto selection = ImGuiFileDialog::Instance()->GetSelection();
+                        if (!selection.empty())
+                        {
+                            const std::string picked = selection.begin()->second;
+                            std::snprintf(slot.importedPath, IM_ARRAYSIZE(slot.importedPath), "%s", picked.c_str());
+                            slot.isImported = true;
+                        }
+                    }
+                    ImGuiFileDialog::Instance()->Close();
+                }
+            };
+
+            DrawZone(road::LotZone::Urban, "Urban", "ChooseUrbanTex");
+            DrawZone(road::LotZone::Suburban, "Suburban", "ChooseSuburbanTex");
+            DrawZone(road::LotZone::Rural, "Rural", "ChooseRuralTex");
+
+            ImGui::Separator();
+            ImGui::TextDisabled("Workflow: Import -> Apply (commit) -> Clear.");
+        }
+        ImGui::End();
+    }
+
+
 }
+
+
 
 void Gui::EndFrameGUI () 
 {
@@ -686,6 +773,48 @@ bool Gui::ConsumeExportRequest(std::string& outDir,
 
     return true;
 }
+
+bool Gui::ConsumeBuildingTextureApply(road::LotZone zone, std::string& outPath)
+{
+    auto SlotFor = [&](road::LotZone z) -> TextureSlot&
+    {
+        switch (z)
+        {
+            case road::LotZone::Urban:    return mBuildingTextures[0];
+            case road::LotZone::Suburban: return mBuildingTextures[1];
+            case road::LotZone::Rural:    return mBuildingTextures[2];
+            default:                      return mBuildingTextures[1];
+        }
+    };
+
+    TextureSlot& slot = SlotFor(zone);
+    if (!slot.requestApply) return false;
+
+    slot.requestApply = false;
+    outPath = slot.importedPath;
+    return !outPath.empty();
+}
+
+bool Gui::ConsumeBuildingTextureClear(road::LotZone zone)
+{
+    auto SlotFor = [&](road::LotZone z) -> TextureSlot&
+    {
+        switch (z)
+        {
+            case road::LotZone::Urban:    return mBuildingTextures[0];
+            case road::LotZone::Suburban: return mBuildingTextures[1];
+            case road::LotZone::Rural:    return mBuildingTextures[2];
+            default:                      return mBuildingTextures[1];
+        }
+    };
+
+    TextureSlot& slot = SlotFor(zone);
+    if (!slot.requestClear) return false;
+
+    slot.requestClear = false;
+    return true;
+}
+
 
 void Gui::SetLastExportResult(bool ok, const std::string& fullPath)
 {

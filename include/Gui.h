@@ -3,6 +3,7 @@
 #include <string>
 #include "Road/RoadParams.h"
 #include "Road/LotParams.h"
+#include "Road/LotTypes.h"
 
 class Gui 
 {
@@ -14,6 +15,22 @@ private:
     //window + init 
     GLFWwindow* mWindow = nullptr;
     bool mInitialized = false;
+
+    // building material / texture UI
+    bool mShowBuildingMaterialsWindow = false;
+
+    struct TextureSlot
+    {
+        bool isImported = false;
+        bool isApplied = false;
+
+        char importedPath[256] = "";
+
+        bool requestApply = false;
+        bool requestClear = false;
+    };
+
+    TextureSlot mBuildingTextures[3];
 
     //3D toggle and generate + quite one shot events
     bool mEnable3D = false;
@@ -109,6 +126,10 @@ public:
 
     bool ConsumeResetCamera();
     bool ConsumeGuiRecreateRequest();
+
+    bool ConsumeBuildingTextureApply(road::LotZone zone, std::string& outPath);
+    bool ConsumeBuildingTextureClear(road::LotZone zone);
+
 
     float GetCityRadius() const { return mRoadParams.cityRadius; }
     const road::LotParams& GetLotParams() const { return mLotParams; }
