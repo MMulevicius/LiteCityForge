@@ -54,7 +54,9 @@ namespace export3d
             {"mat_hwy",      {0.07f, 0.07f, 0.07f}},
             {"mat_street",   {0.12f, 0.12f, 0.12f}},
             {"mat_sidewalk", {0.70f, 0.70f, 0.70f}},
-            {"mat_building", {0.75f, 0.75f, 0.78f}}
+            {"mat_building", {0.75f, 0.75f, 0.78f}},
+            {"mat_roof",     {0.60f, 0.60f, 0.62f}},
+            {"mat_window",   {0.25f, 0.40f, 0.55f}}
         };
 
         if (!ObjWriter::WriteMtl(mtlPath, mats))
@@ -65,7 +67,13 @@ namespace export3d
         meshes.push_back({"Roads_Highway", "mat_hwy", in.roadHighwayTris});
         meshes.push_back({"Roads_Street", "mat_street", in.roadStreetTris});
         meshes.push_back({"Sidewalks", "mat_sidewalk", in.sidewalkTris});
-        meshes.push_back({"Buildings", "mat_building", {}, in.buildingQuads});
+        //meshes.push_back({"Buildings", "mat_building", {}, in.buildingQuads});
+        meshes.push_back({"Buildings_Base", "mat_building", {}, in.buildingQuads});
+
+        if (!in.buildingRoofQuads.empty())
+            meshes.push_back({"Buildings_Roof", "mat_roof", in.buildingRoofTris, in.buildingRoofQuads});
+        if (!in.buildingWindowQuads.empty())
+            meshes.push_back({"Buildings_Windows", "mat_window", {}, in.buildingWindowQuads});
 
         const std::string mtlFileName = baseName + ".mtl"; 
         if (!ObjWriter::WriteObj(objPath, mtlFileName, meshes))

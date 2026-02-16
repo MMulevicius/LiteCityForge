@@ -75,5 +75,28 @@ namespace road
                                             float baseY,
                                             float floorHeight,
                                             float uvMetersPerTile = 2.0f);
+    // Roof details
+    void BuildRoofDetailVerts(const LotCollection& lots,
+                            std::vector<glm::vec3>& outRoofQuads,
+                            std::vector<glm::vec3>& outRoofTris,
+                            float baseY,
+                            float floorHeight);
+
+    // Roof details texture split by zone
+    void BuildRoofDetailTriVertsTexturedByZone(const LotCollection& lots,
+                                            std::vector<BuildingVertexPT>& outUrban,
+                                            std::vector<BuildingVertexPT>& outSuburban,
+                                            std::vector<BuildingVertexPT>& outRural,
+                                            float baseY,
+                                            float floorHeight,
+                                            float uvMetersPerTile = 2.0f);
+
+
+    // Windows 
+    void BuildWindowDetailQuads(const LotCollection& lots,
+                                std::vector<glm::vec3>& outWindowQuads,
+                                float baseY,
+                                float floorHeight);
+
     
 }

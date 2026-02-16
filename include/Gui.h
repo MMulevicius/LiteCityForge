@@ -31,6 +31,10 @@ private:
     };
 
     TextureSlot mBuildingTextures[3];
+    TextureSlot mRoofTextures[3];
+    TextureSlot mRoadTexture;
+    TextureSlot mSidewalkTexture;
+    TextureSlot mGroundTexture;
 
     //3D toggle and generate + quite one shot events
     bool mEnable3D = false;
@@ -42,6 +46,21 @@ private:
     bool mShowSidewalks = false;
     bool mShowGardens = false;
     bool mShowFootprints = false;
+
+    //building details toggles rendering
+    bool mRenderBuildingsBase = true;
+    bool mRenderBuildingsRoofs = false;
+    bool mRenderBuildingsWindows = false;
+
+    //building details toggles exporting
+    bool mExportBuildingsBase = true;
+    bool mExportBuildingsRoofs = false;
+    bool mExportBuildingsWindows = false;
+
+    //window texture request
+    bool mWindowTexApplyRequested = false;
+    bool mWindowTexClearRequested = false;
+    std::string mWindowTexPath;
 
     // settings window + UI
     bool mShowSettingsWindow = false;
@@ -121,6 +140,19 @@ public:
     bool ShowSideWalks() const { return mShowSidewalks; }
     bool ShowFootprints() const { return mShowFootprints; }
 
+    //building details toggles
+    bool RenderBuildingBase() const {return mRenderBuildingsBase; }
+    bool RenderBuildingRoofs() const {return mRenderBuildingsRoofs; }
+    bool RenderBuildingWindows() const {return mRenderBuildingsWindows; }
+
+    bool ExportBuildingBase() const {return mExportBuildingsBase; }
+    bool ExportBuildingRoofs() const {return mExportBuildingsRoofs; }
+    bool ExportBuildingWindows() const {return mExportBuildingsWindows; }
+
+    bool ConsumeWindowTextureApply(std::string& outPath);
+    bool ConsumeWindowTextureClear();
+
+
     bool WantsGenerate();
     bool WantsQuit();
 
@@ -129,6 +161,20 @@ public:
 
     bool ConsumeBuildingTextureApply(road::LotZone zone, std::string& outPath);
     bool ConsumeBuildingTextureClear(road::LotZone zone);
+
+    bool ConsumeRoofTextureApply(road::LotZone zone, std::string& outPath);
+    bool ConsumeRoofTextureClear(road::LotZone zone);
+
+    // roads/sidewalk/ground
+    bool ConsumeRoadTextureApply(std::string& outPath);
+    bool ConsumeRoadTextureClear();
+
+    bool ConsumeSidewalkTextureApply(std::string& outPath);
+    bool ConsumeSidewalkTextureClear();
+
+    bool ConsumeGroundTextureApply(std::string& outPath);
+    bool ConsumeGroundTextureClear();
+
 
 
     float GetCityRadius() const { return mRoadParams.cityRadius; }

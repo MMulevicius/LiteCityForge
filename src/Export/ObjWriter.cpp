@@ -50,7 +50,7 @@ namespace export3d
                 continue;
 
             out << "\no " << mesh.name << "\n";
-            out << "s off\n";
+            out << "g " << mesh.name << "\n";
             if (!mesh.material.empty())
                 out << "usemtl " << mesh.material << "\n";
 
@@ -102,10 +102,10 @@ namespace export3d
             for (int t = 0; t < triCount; ++t)
             {
                 const int vOffset = quadCount * 4;
-                int v0 = vBase + t*3 + 0;
-                int v1 = vBase + t*3 + 1;
-                int v2 = vBase + t*3 + 2;
-                int vn = nBase + t;
+                int v0 = vBase + vOffset + t*3 + 0;
+                int v1 = vBase + vOffset + t*3 + 1;
+                int v2 = vBase + vOffset + t*3 + 2;
+                int vn = nBase + quadCount + t;
 
                 out << "f "
                     << v0 << "//" << vn << " "
