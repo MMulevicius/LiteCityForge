@@ -36,7 +36,6 @@ namespace export3d
         const std::string objPath = (fs::path(outDir) / (baseName + ".obj")).string();
         const std::string mtlPath = (fs::path(outDir) / (baseName + ".mtl")).string();
 
-        // set early so UI can show attempted path even on failure
         if (outObjPath) *outObjPath = objPath;
 
         try

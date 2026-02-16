@@ -399,7 +399,7 @@ void Gui::DrawGUI()
     if (ImGui::CollapsingHeader("Export Settings", ImGuiTreeNodeFlags_DefaultOpen))
     {
 
-        // format (future-proof)
+        // format
         const char* fmtItems[] = { "Wavefront OBJ (.obj)" };
         int fmtIndex = 0; // only OBJ for now
         ImGui::Combo("Format", &fmtIndex, fmtItems, IM_ARRAYSIZE(fmtItems));

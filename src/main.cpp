@@ -882,13 +882,12 @@ namespace
 			}
 
 
-			// 3) Draw windows LAST (so they sit on top)
+			// 3) Draw windows 
 			if (gui.RenderBuildingWindows())
 			{
 				glEnable(GL_BLEND);
 				glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-				// keep depth test ON, but don't write depth (good for overlays)
 				glDepthMask(GL_FALSE);
 
 				windowMeshTex.Draw(buildingTexShader, viewProjection,
@@ -943,19 +942,17 @@ namespace
 
 		if (useGroundTex && groundTex != 0)
 		{
-			// Build a simple textured quad (2 tris) each frame (6 verts only, cheap)
 			BuildGroundPT(
 				groundPT,
 				cityCTX.centerXZ,
 				g.halfW,
 				g.halfH,
 				0.0f,      // y
-				6.0f       // uv meters per tile (tweak later)
+				6.0f       // uv meters per tile 
 			);
 
 			groundMeshTex.Upload(groundPT);
 
-			// fallback color used if texture missing, but we already check it above
 			groundMeshTex.Draw(buildingTexShader, viewProjection, groundTex, true, glm::vec3(0.15f, 0.25f, 0.15f));
 		}
 		else

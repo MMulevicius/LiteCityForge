@@ -261,10 +261,6 @@ namespace road
 
     //textured mesh building
 
-
-
-
-
     static inline void AddTriPT(std::vector<BuildingVertexPT>& v,
                                const glm::vec3& aPos, const glm::vec2& aUV,
                                const glm::vec3& bPos, const glm::vec2& bUV,
@@ -375,8 +371,7 @@ namespace road
         }
     }
 
-    // ---------- ROOF + WINDOW DETAILS ----------
-
+    // roof + window
     static inline glm::vec2 ToVec2(const glm::vec3& v) { return {v.x, v.z}; }
 
     static inline glm::vec2 SafeNorm2(const glm::vec2& v)
@@ -459,7 +454,7 @@ namespace road
             AddTriPT_WorldXZ(v, a, c, d);
         };
 
-        // tweakable constants (match your non-textured roof generator)
+     
         const float inset = 0.06f;
         const float urbanParapetH = 0.10f;
         const float subParapetH   = 0.08f;
@@ -482,10 +477,6 @@ namespace road
             const glm::vec2 p3 = lot.footprint[3];
 
             const glm::vec2 c2 = (p0 + p1 + p2 + p3) * 0.25f;
-
-            // --- Roof style by zone ---
-            // Urban/Suburban => parapet ring + flat fill (textured)
-            // Rural           => gable roof only (textured)
 
             if (lot.zone != road::LotZone::Rural)
             {
@@ -543,7 +534,7 @@ namespace road
             }
             else
             {
-                // --- Rural gable roof (textured) ---
+                // Rural gable roof (textured)
                 const float e01 = glm::length(p1 - p0);
                 const float e12 = glm::length(p2 - p1);
                 const bool ridgeParallelTo01 = (e01 >= e12);
@@ -597,14 +588,14 @@ namespace road
         outRoofQuads.clear();
         outRoofTris.clear();
 
-        // tweakable constants (keep small, looks clean in your scale)
+  
         const float inset = 0.06f;          // parapet thickness inward
-        const float epsOut = 0.0015f;       // helps avoid z-fighting a bit
+        const float epsOut = 0.0015f;       // to avoid z-fighting
         const float urbanParapetH = 0.10f;
         const float subParapetH   = 0.08f;
         const float ruralParapetH = 0.05f;
 
-        (void)epsOut; // currently unused, kept for future tweaks
+        (void)epsOut; // currently unused
 
         for (const auto& lot : lots.lots)
         {
@@ -621,13 +612,10 @@ namespace road
 
             const glm::vec2 c = (p0 + p1 + p2 + p3) * 0.25f;
 
-            // --- Roof style by zone ---
-            // Urban/Suburban => parapet ring + flat fill
-            // Rural           => gable roof ONLY (no parapet ring)
 
             if (lot.zone != road::LotZone::Rural)
             {
-                // --- Urban/Suburban parapet ring (quads) ---
+                // Urban/Suburban parapet ring (quads)
                 float ph = ruralParapetH;
                 if (lot.zone == road::LotZone::Urban) ph = urbanParapetH;
                 else if (lot.zone == road::LotZone::Suburban) ph = subParapetH;
@@ -688,7 +676,7 @@ namespace road
             }
             else
             {
-                // --- Rural: gable roof (2 slope quads + 2 end tris) ---
+                // Rural: gable roof (2 slope quads + 2 end tris)
                 const float e01 = glm::length(p1 - p0);
                 const float e12 = glm::length(p2 - p1);
                 const bool ridgeParallelTo01 = (e01 >= e12);
@@ -743,9 +731,6 @@ namespace road
     {
         outWindowQuads.clear();
 
-        // Very first version: generate “grid-ish” windows per wall with zone density.
-        // We’ll refine rules after you confirm visuals.
-
         const float windowInsetFromEdges = 0.18f; // margins on wall
         const float windowW = 0.22f;
         const float windowH = 0.22f;
@@ -788,8 +773,7 @@ namespace road
 
                 if (lot.zone == road::LotZone::Rural)
                 {
-                    // Rural should keep windows sparse, but not absurdly spaced on long walls.
-                    // Target about ~1.2m per window slot (tweak if needed).
+
                     float desiredSpacing = 1.2f;
                     cols = (int)std::floor(edgeLen / desiredSpacing);
                     cols = glm::clamp(cols, colsMin, colsMax);
@@ -801,7 +785,6 @@ namespace road
 
                 float margin = windowInsetFromEdges;
 
-                // rural: random margin so houses don't look like grid office blocks
                 if (lot.zone == road::LotZone::Rural)
                 {
 
@@ -827,7 +810,7 @@ namespace road
                 if (lot.zone == road::LotZone::Rural)
                     floorsForWindows = std::min(floors, 2); // rural: single row only
 
-                // If rural has 2+ floors, force 2 rows (helps avoid some edge cases)
+                // If rural has 2+ floors, force 2 rows
                 if (lot.zone == road::LotZone::Rural && floors >= 2)
                     floorsForWindows = 2;
 
@@ -840,8 +823,6 @@ namespace road
 
                     for (int c = 0; c < cols; ++c)
                     {
-                        // rural: not every slot gets a window
-                        //if (lot.zone == road::LotZone::Rural && (c % 2 == 1)) continue;
 
                         float center = margin + (c + 0.5f) * step;
                         float u0 = center - windowW * 0.5f;
