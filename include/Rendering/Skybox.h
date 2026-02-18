@@ -4,7 +4,7 @@
 #include <glad/glad.h>
 #include <glm/glm.hpp>
 #include "Shader.h"
-#include "Camera.h"
+#include "Core/Camera.h"
 
 class Skybox
 {

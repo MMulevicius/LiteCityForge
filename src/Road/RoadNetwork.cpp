@@ -1,5 +1,5 @@
 #include "Road/RoadNetwork.h"
-#include "Road/LotTypes.h"
+#include "Lots/LotTypes.h"
 #include <algorithm>
 
 namespace road

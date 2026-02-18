@@ -1,4 +1,4 @@
-#include "Gui.h"
+#include "GUI/Gui.h"
 #include "imgui.h"
 #include "backends/imgui_impl_glfw.h"
 #include "backends/imgui_impl_opengl3.h"
@@ -9,6 +9,31 @@
 #include <algorithm>
 #include <filesystem>
 
+
+// finds project's assets/ folder
+static std::filesystem::path FindAssetsRoot()
+{
+    //
+    std::filesystem::path p = std::filesystem::current_path();
+    for (int i = 0; i < 8; ++i)
+    {
+        std::filesystem::path candidate = p / "assets" / "textures";
+        if (std::filesystem::exists(candidate))
+            return p / "assets";
+        if (!p.has_parent_path())
+            break;
+        p = p.parent_path();
+    }
+    return {}; // not found
+}
+
+//converts a filesystem path to string
+static std::string ToStringPath(const std::filesystem::path& p)
+{
+    return p.empty() ? std::string{} : p.string();
+}
+
+//setup GUI
 bool Gui::Initialize_GUI(GLFWwindow *window, const char* glslVersion)
 {
     
@@ -83,13 +108,16 @@ void Gui::SetFullscreen(bool enabled)
 
     mFullscreen = enabled;
 }
-
+//consume block:
+//return the flag
+//reset it to false
 bool Gui::ConsumeGuiRecreateRequest()
 {
     bool v = mRequestGuiRecreate;
     mRequestGuiRecreate = false;
     return v;
 }
+
 
 bool Gui::ConsumeWindowTextureApply(std::string& outPath)
 {
@@ -107,7 +135,7 @@ bool Gui::ConsumeWindowTextureClear()
     return true;
 }
 
-
+//reset ImGui layout
 void Gui::ResetImGuiLayout()
 {
     ImGuiIO& io = ImGui::GetIO();
@@ -117,6 +145,7 @@ void Gui::ResetImGuiLayout()
     std::error_code ec;
     std::filesystem::remove(io.IniFilename, ec);
 
+    //flags
     mSkipDockspaceNextFrame = true;              
     mForceMainWindowDefaultNextFrame = true;     
     mForceSettingsWindowDefaultNextFrame = true;
@@ -125,7 +154,7 @@ void Gui::ResetImGuiLayout()
 
 
 
-
+//Ui scaling
 void Gui::ApplyUiScale()
 {
     ImGuiIO& io = ImGui::GetIO();
@@ -241,50 +270,12 @@ void Gui::DrawGUI()
     
     //title of the menu
     ImGui::Begin("LiteCityForge");
-    // settings button
-    ImGui::SameLine();
-    if (ImGui::Button(u8"⚙ Settings"))
-    {
-        mShowSettingsWindow = !mShowSettingsWindow;
-    }
-
-    if (ImGui::Button("Materials"))
-    {
-    mShowBuildingMaterialsWindow = !mShowBuildingMaterialsWindow;
-    }
-
-    ImGui::Separator();
-
-    //checkboxes
-    ImGui::Checkbox("3D mode", &mEnable3D);
-    ImGui::SameLine();
-
-    ImGui::Checkbox("Show Lots", &mShowLotDebug);
-    ImGui::SameLine();
-
-    ImGui::Checkbox("Show Sidewalks", &mShowSidewalks);
-    ImGui::SameLine();
-
-    ImGui::Checkbox("Show Gardens", &mShowGardens);
-    ImGui::SameLine();
-
-    ImGui::Checkbox("Show Footprints", &mShowFootprints);
-
-    ImGui::Separator();
-
-    //building detail toggles
-    ImGui::TextUnformatted("Building Details");
-    ImGui::Checkbox("Render Base##RenderBase", &mRenderBuildingsBase);
-    ImGui::SameLine();
-    ImGui::Checkbox("Render Roofs##RenderRoofs", &mRenderBuildingsRoofs);
-    ImGui::SameLine();
-    ImGui::Checkbox("Render Windows##RenderWindows", &mRenderBuildingsWindows);
-
-    ImGui::Separator();
 
 
-    //generate button
-    if (ImGui::Button("Generate")) {
+
+
+
+        if (ImGui::Button("Generate")) {
         
         mGenerateRequested = true;
         //mShowBlocks = true;
@@ -380,12 +371,52 @@ void Gui::DrawGUI()
     }
 
     ImGui::SameLine();
+    if (ImGui::Button("Materials"))
+    {
+    mShowBuildingMaterialsWindow = !mShowBuildingMaterialsWindow;
+    }
+    // settings button
+    ImGui::SameLine();
+    if (ImGui::Button(u8"⚙ Settings"))
+    {
+        mShowSettingsWindow = !mShowSettingsWindow;
+    }
+
+
     if (mLastGenerationMs >= 0.0)
     {
         ImGui::Text("Generation time: %.2f ms", mLastGenerationMs);
     }
 
     ImGui::Separator();
+
+    //checkboxes
+    ImGui::Checkbox("3D mode", &mEnable3D);
+    ImGui::SameLine();
+
+    ImGui::Checkbox("Show Lots", &mShowLotDebug);
+    ImGui::SameLine();
+
+    ImGui::Checkbox("Show Sidewalks", &mShowSidewalks);
+    ImGui::SameLine();
+
+    ImGui::Checkbox("Show Gardens", &mShowGardens);
+    ImGui::SameLine();
+
+    ImGui::Checkbox("Show Footprints", &mShowFootprints);
+
+    ImGui::Separator();
+
+    //building detail toggles
+    ImGui::TextUnformatted("Building Details");
+    //ImGui::Checkbox("Render Base##RenderBase", &mRenderBuildingsBase);
+    ImGui::SameLine();
+    ImGui::Checkbox("Render Roofs##RenderRoofs", &mRenderBuildingsRoofs);
+    ImGui::SameLine();
+    ImGui::Checkbox("Render Windows##RenderWindows", &mRenderBuildingsWindows);
+
+    ImGui::Separator();
+
 
     ImGui::InputInt("Seed", &uiSeed);
     ImGui::SameLine();
@@ -451,9 +482,10 @@ void Gui::DrawGUI()
             if (ImGuiFileDialog::Instance()->IsOk())
             {
                 std::string pickedDir;
+                std::string pickedName;
 
-                auto selection = ImGuiFileDialog::Instance()->GetSelection(); 
-
+                // directory 
+                auto selection = ImGuiFileDialog::Instance()->GetSelection();
                 if (!selection.empty())
                 {
                     const std::string pickedPath = selection.begin()->second;
@@ -463,21 +495,37 @@ void Gui::DrawGUI()
                         pickedDir = p.string();
                     else
                         pickedDir = p.parent_path().string();
+
+                    if (p.has_filename() && (!std::filesystem::is_directory(p)))
+                        pickedName = p.stem().string();
                 }
                 else
                 {
-                    // Fallback
                     pickedDir = ImGuiFileDialog::Instance()->GetCurrentPath();
                 }
 
-                if (!pickedDir.empty())
+                std::string typed = ImGuiFileDialog::Instance()->GetCurrentFileName();
+                if (!typed.empty())
+                    pickedName = typed;
+
+                if (!pickedName.empty())
                 {
-                    std::snprintf(mExportDir, IM_ARRAYSIZE(mExportDir), "%s", pickedDir.c_str());
+                    std::filesystem::path np(pickedName);
+                    if (np.has_extension())
+                        pickedName = np.stem().string();
                 }
+
+                // apply to UI fields
+                if (!pickedDir.empty())
+                    std::snprintf(mExportDir, IM_ARRAYSIZE(mExportDir), "%s", pickedDir.c_str());
+
+                if (!pickedName.empty())
+                    std::snprintf(mExportBaseName, IM_ARRAYSIZE(mExportBaseName), "%s", pickedName.c_str());
             }
 
             ImGuiFileDialog::Instance()->Close();
         }
+
 
 
 
@@ -537,8 +585,6 @@ void Gui::DrawGUI()
     if (ImGui::CollapsingHeader("City / Global", ImGuiTreeNodeFlags_DefaultOpen))
     {
         ImGui::SliderFloat("City Radius", &uiCityRadius, 10.0f, 200.0f, "%.1f");
-        //ImGui::SliderFloat("Seed Jitter (deg)", &uiSeedJitterDeg, 0.0f, 60.0f, "%.1f");
-        //ImGui::SliderFloat("Branch Turn (deg)", &uiBranchTurnDeg, 15.0f, 90.0f, "%.1f");
         ImGui::SliderInt("Max Iterations", &uiMaxIterations, 500, 50000);
     }
 
@@ -550,7 +596,6 @@ void Gui::DrawGUI()
     ImGui::SliderFloat("Building Setback Front", &mLotParams.buildingSetbackFront, 0.0f, 2.0f, "%.2f");
     ImGui::SliderFloat("Building Setback Side",  &mLotParams.buildingSetbackSide,  0.0f, 2.0f, "%.2f");
     ImGui::SliderFloat("Building Setback Back",  &mLotParams.buildingSetbackBack,  0.0f, 2.0f, "%.2f");
-    //ImGui::SliderFloat("Setback Jitter",&mLotParams.buildingSetBackJitter,0.0f, 0.5f, "%.2f");
     ImGui::SliderFloat("Coverage Min",  &mLotParams.buildingCoverageMin,  0.05f, 0.9f, "%.2f");
     ImGui::SliderFloat("Coverage Max",  &mLotParams.buildingCoverageMax,  0.05f, 0.9f, "%.2f");
     }
@@ -586,19 +631,12 @@ void Gui::DrawGUI()
         ImGui::SliderFloat("Street Priority Weight", &uiStreetPriorityWeight, 0.1f, 6.0f, "%.2f");
     }
 
-    //loop controls
-    // if (ImGui::CollapsingHeader("Loops / Parcels", ImGuiTreeNodeFlags_DefaultOpen))
-    // {
-    //     ImGui::SliderFloat("Loop Close Chance", &uiLoopCloseChance, 0.0f, 1.0f, "%.2f");
-    //     ImGui::SliderFloat("Loop Close Radius", &uiLoopCloseRadius, 1.0f, 60.0f, "%.1f");
-    // }
 
     //lots/urbanization
     ImGui::SetNextItemOpen(false, ImGuiCond_FirstUseEver);
     if (ImGui::CollapsingHeader("Lots / Urbanization", ImGuiTreeNodeFlags_DefaultOpen))
     {
         ImGui::SliderFloat("Global Urbanization", &mLotParams.globalUrbanization, 0.0f, 1.0f, "%.2f");
-        //ImGui::SliderFloat("Global Bias Strength", &mLotParams.globalBiasStrength, 0.0f, 1.0f, "%.2f");
 
         ImGui::Separator();
         ImGui::SliderFloat("Urban Threshold", &mLotParams.urbanThreshold, 0.0f, 1.0f, "%.2f");
@@ -664,6 +702,52 @@ void Gui::DrawGUI()
         ImGui::SetNextWindowSize(ImVec2(520, 320), ImGuiCond_FirstUseEver);
         if (ImGui::Begin("Materials", &mShowBuildingMaterialsWindow))
         {
+            // Apply Defaults 
+            if (ImGui::Button("Apply Defaults"))
+            {
+                const std::filesystem::path assetsRoot = FindAssetsRoot();
+                const std::filesystem::path texRoot = assetsRoot.empty() ? std::filesystem::path{} : (assetsRoot / "textures");
+
+                auto SetSlot = [&](TextureSlot& slot, const std::filesystem::path& p)
+                {
+                    const std::string s = ToStringPath(p);
+                    if (s.empty()) return;
+                    std::snprintf(slot.importedPath, IM_ARRAYSIZE(slot.importedPath), "%s", s.c_str());
+                    slot.isImported = true;
+                    slot.isApplied = true;
+                    slot.requestApply = true;
+                    slot.requestClear = false;
+                };
+
+                // Building walls (Urban/Suburban/Rural)
+                SetSlot(mBuildingTextures[0], texRoot / "Building" / "UrbanWalls.jpg");
+                SetSlot(mBuildingTextures[1], texRoot / "Building" / "SuburbanWalls.jpg");
+                SetSlot(mBuildingTextures[2], texRoot / "Building" / "RuralWalls.jpg");
+
+                // Roofs (Urban/Suburban/Rural)
+                SetSlot(mRoofTextures[0], texRoot / "Roof" / "UrbanRoofs.jpg");
+                SetSlot(mRoofTextures[1], texRoot / "Roof" / "SuburbanRoofs.jpg");
+                SetSlot(mRoofTextures[2], texRoot / "Roof" / "RuralRoofs.jpg");
+
+                // Scene (single textures)
+                SetSlot(mRoadTexture,     texRoot / "Road" / "Asphalt.jpg");
+                SetSlot(mSidewalkTexture, texRoot / "Sidewalk" / "SidewalkTex.jpg");
+                SetSlot(mGroundTexture,   texRoot / "Ground" / "GroundTex.jpg");
+
+                // Windows (single texture)
+                const std::filesystem::path winP = texRoot / "Window" / "BuildingWindows.png";
+                const std::string winS = ToStringPath(winP);
+                if (!winS.empty())
+                {
+                    mWindowTexPath = winS;
+                    mWindowTexApplyRequested = true;
+                    mWindowTexClearRequested = false;
+                }
+            }
+
+            ImGui::SameLine();
+
+
             auto DrawZone = [&](road::LotZone zone, const char* label, const char* dialogKey)
             {
                 TextureSlot& slot = (zone == road::LotZone::Urban)
@@ -1102,9 +1186,6 @@ bool Gui::ConsumeGroundTextureClear()
     mGroundTexture.requestClear = false;
     return true;
 }
-
-
-
 
 void Gui::SetLastExportResult(bool ok, const std::string& fullPath)
 {

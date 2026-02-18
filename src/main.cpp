@@ -16,23 +16,25 @@
 #include "backends/imgui_impl_opengl3.h"
 #include "imguiThemes.h"
 #include <chrono>
+#include "Rendering/ShadowMap.h"
+
 
 //main project dependencies
-#include "Primitives.h"
-#include "Camera.h"
+#include "Core/Primitives.h"
+#include "Core/Camera.h"
 #include "Road/RoadGenerator.h"
 #include "Road/RoadParams.h"
-#include "Road/LineRenderer.h"
-#include "Road/LotSubdivision.h"
-#include "Road/LotParams.h"
-#include "Road/LotTypes.h"
+#include "Rendering/LineRenderer.h"
+#include "Lots/LotSubdivision.h"
+#include "Lots/LotParams.h"
+#include "Lots/LotTypes.h"
 #include "Road/SideWalkGenerator.h"
-#include "Road/BuildingRenderer.h"
+#include "Rendering/BuildingRenderer.h"
 #include "Road/RoadSurfaceGenerator.h"
 #include "Export/CityExporter.h"
-#include "Gui.h"
-#include <Shader.h>
-#include "Skybox.h"
+#include "GUI/Gui.h"
+#include <Rendering/Shader.h>
+#include "Rendering/Skybox.h"
 
 
 //global Y axis variable for zooming in/out control.
@@ -779,8 +781,6 @@ namespace
 
 	void UpdateCameraPerFrame(Camera& camera, GLFWwindow* window, float deltaTime, bool is3D) {
 		
-		camera.Update(deltaTime);
-
 		if (is3D) {
 			UpdateCamera3DControls(camera, window, deltaTime);
 		} else {
@@ -788,144 +788,162 @@ namespace
 		}
 	}
 
-	void Draw3DMeshesIfEnabled (Gui& gui, bool is3D, Shader& lineShader, Shader& buildingTexShader,
-										const glm::mat4& viewProjection,
-										road::BuildingRenderer& roadMeshStreet,
-										road::BuildingRenderer& roadMeshHighway,
-										road::BuildingRenderer& sidewalkMesh,
-										road::BuildingRenderer& buildingMesh,
-										road::BuildingTexturedRenderer& buildingMeshUrban,
-										road::BuildingTexturedRenderer& buildingMeshSuburban,
-										road::BuildingTexturedRenderer& buildingMeshRural,
-										road::BuildingTexturedRenderer& roadMeshStreetTex,
-										road::BuildingTexturedRenderer& roadMeshHighwayTex,
-										road::BuildingTexturedRenderer& sidewalkMeshTex,
+	void Draw3DMeshesIfEnabled(
+		Gui& gui, bool is3D,
+		Shader& lineShader,
+		Shader& litShader,
+		const glm::mat4& viewProjection,
 
-										GLuint urbanTex, GLuint suburbanTex, GLuint ruralTex,
-										GLuint roofUrbanTex, GLuint roofSuburbanTex, GLuint roofRuralTex,
-										GLuint roadTex, GLuint sidewalkTex,
-										bool useUrban, bool useSuburban, bool useRural,
-										bool useRoofUrban, bool useRoofSuburban, bool useRoofRural,
-										bool useRoadTex, bool useSidewalkTex) 
+		road::BuildingRenderer& roadMeshStreet,
+		road::BuildingRenderer& roadMeshHighway,
+		road::BuildingRenderer& sidewalkMesh,
+		road::BuildingRenderer& buildingMesh,
+
+		road::BuildingTexturedRenderer& buildingMeshUrban,
+		road::BuildingTexturedRenderer& buildingMeshSuburban,
+		road::BuildingTexturedRenderer& buildingMeshRural,
+
+		road::BuildingTexturedRenderer& roofMeshUrban,
+		road::BuildingTexturedRenderer& roofMeshSuburban,
+		road::BuildingTexturedRenderer& roofMeshRural,
+
+		road::BuildingTexturedRenderer& windowMeshTex,
+
+		road::BuildingTexturedRenderer& roadMeshStreetTex,
+		road::BuildingTexturedRenderer& roadMeshHighwayTex,
+		road::BuildingTexturedRenderer& sidewalkMeshTex,
+
+		GLuint urbanTex, GLuint suburbanTex, GLuint ruralTex,
+		GLuint roofUrbanTex, GLuint roofSuburbanTex, GLuint roofRuralTex,
+		GLuint roadTex, GLuint sidewalkTex,
+		GLuint windowTex,
+
+		bool useUrban, bool useSuburban, bool useRural,
+		bool useRoofUrban, bool useRoofSuburban, bool useRoofRural,
+		bool useRoadTex, bool useSidewalkTex,
+		bool useWindowTex
+	)
 	{
-			if (!is3D)
-			{
-				return;
-			}
+		if (!is3D) return;
 
-			glDisable(GL_CULL_FACE); 
-			lineShader.use();
+		// IMPORTANT for shadow quality: keep culling enabled for the main pass
+		glEnable(GL_CULL_FACE);
+		glCullFace(GL_BACK);
 
-            // Roads / Sidewalks
-            if (useRoadTex)
-            {
-                const glm::vec3 roadFallback(0.10f, 0.10f, 0.10f);
-                roadMeshStreetTex.Draw(buildingTexShader, viewProjection, roadTex, true, roadFallback);
-                roadMeshHighwayTex.Draw(buildingTexShader, viewProjection, roadTex, true, roadFallback);
-            }
-            else
-            {
-                lineShader.use();
-                glUniform3f(glGetUniformLocation(lineShader.ID, "uColor"), 0.12f, 0.12f, 0.12f);
-                roadMeshStreet.Draw(lineShader, viewProjection);
+		// --------------------
+		// Roads / Sidewalks
+		// --------------------
+		if (useRoadTex && roadTex != 0)
+		{
+			const glm::vec3 roadFallback(0.10f, 0.10f, 0.10f);
+			roadMeshStreetTex.Draw(litShader, viewProjection, roadTex, true, roadFallback);
+			roadMeshHighwayTex.Draw(litShader, viewProjection, roadTex, true, roadFallback);
+		}
+		else
+		{
+			// BuildingRenderer doesn't set uUseTexture/uColor, so we set them here
+			litShader.use();
+			glUniform1i(glGetUniformLocation(litShader.ID, "uUseTexture"), 0);
 
-                glUniform3f(glGetUniformLocation(lineShader.ID, "uColor"), 0.07f, 0.07f, 0.07f);
-                roadMeshHighway.Draw(lineShader, viewProjection);
-            }
+			glUniform3f(glGetUniformLocation(litShader.ID, "uColor"), 0.12f, 0.12f, 0.12f);
+			roadMeshStreet.Draw(litShader, viewProjection);
 
-            if (useSidewalkTex)
-            {
-                const glm::vec3 swFallback(0.70f, 0.70f, 0.70f);
-                sidewalkMeshTex.Draw(buildingTexShader, viewProjection, sidewalkTex, true, swFallback);
-            }
-            else
-            {
-                lineShader.use();
-                glUniform3f(glGetUniformLocation(lineShader.ID, "uColor"), 0.70f, 0.70f, 0.70f);
-                sidewalkMesh.Draw(lineShader, viewProjection);
-            }
+			glUniform3f(glGetUniformLocation(litShader.ID, "uColor"), 0.07f, 0.07f, 0.07f);
+			roadMeshHighway.Draw(litShader, viewProjection);
+		}
 
-			//buildings
-			const bool anyTextured = (useUrban || useSuburban || useRural);
+		if (useSidewalkTex && sidewalkTex != 0)
+		{
+			const glm::vec3 swFallback(0.70f, 0.70f, 0.70f);
+			sidewalkMeshTex.Draw(litShader, viewProjection, sidewalkTex, true, swFallback);
+		}
+		else
+		{
+			litShader.use();
+			glUniform1i(glGetUniformLocation(litShader.ID, "uUseTexture"), 0);
 
-			// 1) Draw the building base FIRST
-			if (anyTextured)
-			{
-				const glm::vec3 urbanFallback(0.78f, 0.78f, 0.80f);
-				const glm::vec3 subFallback  (0.75f, 0.75f, 0.78f);
-				const glm::vec3 rurFallback  (0.72f, 0.72f, 0.75f);
+			glUniform3f(glGetUniformLocation(litShader.ID, "uColor"), 0.70f, 0.70f, 0.70f);
+			sidewalkMesh.Draw(litShader, viewProjection);
+		}
 
-				buildingMeshUrban.Draw(buildingTexShader, viewProjection, urbanTex, useUrban, urbanFallback);
-				buildingMeshSuburban.Draw(buildingTexShader, viewProjection, suburbanTex, useSuburban, subFallback);
-				buildingMeshRural.Draw(buildingTexShader, viewProjection, ruralTex, useRural, rurFallback);
-			}
-			else
-			{
-				lineShader.use();
-				glUniform3f(glGetUniformLocation(lineShader.ID, "uColor"), 0.75f, 0.75f, 0.78f);
-				buildingMesh.Draw(lineShader, viewProjection);
-			}
+		// --------------------
+		// Buildings (base)
+		// --------------------
+		const bool anyTextured = (useUrban || useSuburban || useRural);
 
-			// Roofs AFTER buildings
-			if (gui.RenderBuildingRoofs())
-			{
-				const glm::vec3 roofFallback(0.65f, 0.65f, 0.67f);
+		if (anyTextured)
+		{
+			const glm::vec3 urbanFallback(0.78f, 0.78f, 0.80f);
+			const glm::vec3 subFallback  (0.75f, 0.75f, 0.78f);
+			const glm::vec3 rurFallback  (0.72f, 0.72f, 0.75f);
 
-				roofMeshUrban.Draw(buildingTexShader, viewProjection,
-								roofUrbanTex, useRoofUrban, roofFallback);
+			buildingMeshUrban.Draw(litShader, viewProjection, urbanTex,    useUrban,    urbanFallback);
+			buildingMeshSuburban.Draw(litShader, viewProjection, suburbanTex, useSuburban, subFallback);
+			buildingMeshRural.Draw(litShader, viewProjection, ruralTex,    useRural,    rurFallback);
+		}
+		else
+		{
+			litShader.use();
+			glUniform1i(glGetUniformLocation(litShader.ID, "uUseTexture"), 0);
+			glUniform3f(glGetUniformLocation(litShader.ID, "uColor"), 0.75f, 0.75f, 0.78f);
+			buildingMesh.Draw(litShader, viewProjection);
+		}
 
-				roofMeshSuburban.Draw(buildingTexShader, viewProjection,
-									roofSuburbanTex, useRoofSuburban, roofFallback);
+		// Roofs
+		if (gui.RenderBuildingRoofs())
+		{
+			glDisable(GL_CULL_FACE);
 
-				roofMeshRural.Draw(buildingTexShader, viewProjection,
-								roofRuralTex, useRoofRural, roofFallback);
-			}
+			glEnable(GL_POLYGON_OFFSET_FILL);
+			//to avoid Z-fighting
+			glPolygonOffset(-1.0f, -1.0f);
 
+			const glm::vec3 roofFallback(0.65f, 0.65f, 0.67f);
+			roofMeshUrban.Draw(litShader, viewProjection, roofUrbanTex, useRoofUrban, roofFallback);
+			roofMeshSuburban.Draw(litShader, viewProjection, roofSuburbanTex, useRoofSuburban, roofFallback);
+			roofMeshRural.Draw(litShader, viewProjection, roofRuralTex, useRoofRural, roofFallback);
 
-			// 3) Draw windows 
-			if (gui.RenderBuildingWindows())
-			{
-				glEnable(GL_BLEND);
-				glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+			glDisable(GL_POLYGON_OFFSET_FILL);
 
-				glDepthMask(GL_FALSE);
-
-				windowMeshTex.Draw(buildingTexShader, viewProjection,
-								windowTex,
-								useWindowTex,
-								glm::vec3(0.20f, 0.35f, 0.55f));
-
-				glDepthMask(GL_TRUE);
-				glDisable(GL_BLEND);
-			}
+			glEnable(GL_CULL_FACE);
+			glCullFace(GL_BACK);
+		}
 
 
 
+		// Windows
+		if (gui.RenderBuildingWindows())
+		{
+			glEnable(GL_BLEND);
+			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-			if(anyTextured)
-			{
+			glEnable(GL_POLYGON_OFFSET_FILL);
+			// Pull window fragments slightly towards camera to avoid z-fighting shimmer at distance
+			glPolygonOffset(-1.0f, -1.0f);
 
-				const glm::vec3 urbanFallback(0.78f, 0.78f, 0.80f);
-				const glm::vec3 subFallback  (0.75f, 0.75f, 0.78f);
-				const glm::vec3 rurFallback  (0.72f, 0.72f, 0.75f);
+			glDepthMask(GL_FALSE);
 
-				buildingMeshUrban.Draw(buildingTexShader, viewProjection, urbanTex, useUrban, urbanFallback);
-				buildingMeshSuburban.Draw(buildingTexShader, viewProjection, suburbanTex, useSuburban, subFallback);
-				buildingMeshRural.Draw(buildingTexShader, viewProjection, ruralTex, useRural, rurFallback);
-			}
-			else
-			{
-				lineShader.use();
-				glUniform3f(glGetUniformLocation(lineShader.ID, "uColor"), 0.75f, 0.75f, 0.78f);
-				buildingMesh.Draw(lineShader, viewProjection);
-			}
-		
+			windowMeshTex.Draw(
+				litShader,
+				viewProjection,
+				windowTex,
+				useWindowTex,
+				glm::vec3(0.20f, 0.35f, 0.55f)
+			);
+
+			glDisable(GL_POLYGON_OFFSET_FILL);
+
+			glDepthMask(GL_TRUE);
+			glDisable(GL_BLEND);
+		}
+
 	}
+
 	//ground and returns for export
 	GroundContext DrawGroundAndGetExtents(
 		Primitives& primitives,
 		Shader& primShader,
-		Shader& buildingTexShader,
+		Shader& litShader,
 		const glm::mat4& viewProjection,
 		const CityContext& cityCTX,
 		bool useGroundTex,
@@ -953,7 +971,7 @@ namespace
 
 			groundMeshTex.Upload(groundPT);
 
-			groundMeshTex.Draw(buildingTexShader, viewProjection, groundTex, true, glm::vec3(0.15f, 0.25f, 0.15f));
+			groundMeshTex.Draw(litShader, viewProjection, groundTex, groundTex != 0, glm::vec3(0.0f, 0.30f, 0.0f));
 		}
 		else
 		{
@@ -1340,9 +1358,14 @@ int main(void)
 
 	
 	//three shaders: one for primitives (such as ground), line rendering of triangles, building textures
-	Shader primShader("../include/basic.vert", "../include/basic.frag");
-	Shader lineShader("../include/line.vert", "../include/line.frag");
-	Shader buildingTexShader("../include/building_tex.vert", "../include/building_tex.frag");
+	Shader primShader("../include/Shaders/basic.vert", "../include/Shaders/basic.frag");
+	Shader lineShader("../include/Shaders/line.vert", "../include/Shaders/line.frag");
+	Shader buildingTexShader("../include/Shaders/building_tex.vert", "../include/Shaders/building_tex.frag");
+	Shader shadowDepthShader("../include/Shaders/shadow_depth.vert", "../include/Shaders/shadow_depth.frag");
+	Shader litShader("../include/Shaders/lit_shadow.vert", "../include/Shaders/lit_shadow.frag");
+
+	//ShadowMap initialize
+	ShadowMap shadowMap;
 
 	//Skybox initilization
 	Skybox skybox;
@@ -1395,6 +1418,7 @@ int main(void)
     if (!sidewalkMeshTex.Initialize())    return Fail("sidewalkMeshTex");
     if (!groundMeshTex.Initialize())      return Fail("groundMeshTex");
 
+	if (!shadowMap.Init(4096)) return Fail("shadowMap");
 
 
 	std::cout << "All renderers initialized OK.\n";
@@ -1402,7 +1426,13 @@ int main(void)
 
 	//openGL state + error reporting
 	glEnable(GL_DEPTH_TEST);
+
+	glEnable(GL_CULL_FACE);
+	glCullFace(GL_BACK);
+	glFrontFace(GL_CW);
+
 	enableReportGlErrors();
+
 
 
 //the frame loop
@@ -1428,35 +1458,167 @@ while (!glfwWindowShouldClose(window))
 	//choose city radius and center based on wheter roads are shown
 	CityContext city = ResolveCityContext(showRoads, gui, roadParams);
 
+
+	glm::vec3 lightDir = glm::normalize(glm::vec3(-0.4f, -1.0f, -0.2f)); // sun direction
+
+	float r = city.cityR;
+	glm::vec2 c = city.centerXZ;
+	glm::vec3 center3(c.x, 0.0f, c.y);
+
+	// light “camera”
+	glm::vec3 lightPos = center3 - lightDir * (r * 2.5f);
+
+	// ortho box covering the city
+	float ortho = r * 1.8f;
+	glm::mat4 lightView  = glm::lookAt(lightPos, center3, glm::vec3(0,1,0));
+	glm::mat4 lightProj  = glm::ortho(-ortho, ortho, -ortho, ortho, 0.1f, r * 6.0f);
+	glm::mat4 lightSpace = lightProj * lightView;
+
+
 	//camera mode toggle + reset
 	const bool is3D = UpdateCameraModeAndResetFromGui(gui, camera, city);
 	
 	// camera  and ground adjustment
 	FrameContext frame = BeginFrameTimingAndVP(window, camera);
 
+	// ---- Shadow depth pass (MUST be between BeginDepthPass / EndDepthPass) ----
+	shadowMap.BeginDepthPass();
+
+	glEnable(GL_POLYGON_OFFSET_FILL);
+	glPolygonOffset(2.5f, 4.0f);
+
+	shadowDepthShader.use();
+
+	const bool anyBuildingTex = (useUrban || useSuburban || useRural);
+
+	if (useRoadTex && roadTex != 0)
+	{
+		roadMeshStreetTex.Draw(shadowDepthShader, lightSpace, 0, false, glm::vec3(0));
+		roadMeshHighwayTex.Draw(shadowDepthShader, lightSpace, 0, false, glm::vec3(0));
+	}
+	else
+	{
+		roadMeshHighway.Draw(shadowDepthShader, lightSpace);
+		roadMeshStreet.Draw(shadowDepthShader, lightSpace);
+	}
+
+	if (useSidewalkTex && sidewalkTex != 0)
+	{
+		sidewalkMeshTex.Draw(shadowDepthShader, lightSpace, 0, false, glm::vec3(0));
+	}
+	else
+	{
+		sidewalkMesh.Draw(shadowDepthShader, lightSpace);
+	}
+
+	// Buildings base
+	if (anyBuildingTex)
+	{
+		buildingMeshUrban.Draw(shadowDepthShader, lightSpace, 0, false, glm::vec3(0));
+		buildingMeshSuburban.Draw(shadowDepthShader, lightSpace, 0, false, glm::vec3(0));
+		buildingMeshRural.Draw(shadowDepthShader, lightSpace, 0, false, glm::vec3(0));
+	}
+	else
+	{
+		buildingMesh.Draw(shadowDepthShader, lightSpace);
+	}
+
+	// Roofs
+	if (gui.RenderBuildingRoofs())
+	{
+		roofMeshUrban.Draw(shadowDepthShader, lightSpace, 0, false, glm::vec3(0));
+		roofMeshSuburban.Draw(shadowDepthShader, lightSpace, 0, false, glm::vec3(0));
+		roofMeshRural.Draw(shadowDepthShader, lightSpace, 0, false, glm::vec3(0));
+	}
+
+	// Windows
+	if (gui.RenderBuildingWindows())
+	{
+		windowMeshTex.Draw(shadowDepthShader, lightSpace, 0, false, glm::vec3(0));
+	}
+
+	// Ground
+	groundMeshTex.Draw(shadowDepthShader, lightSpace, 0, false, glm::vec3(0));
+
+
+	glDisable(GL_POLYGON_OFFSET_FILL);
+
+	shadowMap.EndDepthPass(frame.w, frame.h);
+
+
+
+
+	litShader.use();
+	glUniformMatrix4fv(glGetUniformLocation(litShader.ID, "uLightSpace"), 1, GL_FALSE, glm::value_ptr(lightSpace));
+	glUniform3f(glGetUniformLocation(litShader.ID, "uLightDir"), lightDir.x, lightDir.y, lightDir.z);
+
+	glm::vec3 camPos = camera.GetPos();
+	glUniform3f(glGetUniformLocation(litShader.ID, "uViewPos"), camPos.x, camPos.y, camPos.z);
+
+	// bind shadow map on texture unit 1
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, shadowMap.GetDepthTexture());
+	glUniform1i(glGetUniformLocation(litShader.ID, "uShadowMap"), 1);
+
+
 	//input + viewport
 	HandlePlatformInputAndViewport(window);
 
 	//Draw skybox scene
-	skybox.Draw(camera, frame.aspect, is3D);
+	//skybox.Draw(camera, frame.aspect, is3D);
 
 	//camera per-frame update + controls
 	UpdateCameraPerFrame(camera, window, frame.deltaTime, is3D);
 
 	//draws 3D meshes (only when is3D)
-	Draw3DMeshesIfEnabled(gui, is3D, lineShader, buildingTexShader, frame.viewProjection, roadMeshStreet,
-						  roadMeshHighway, sidewalkMesh, buildingMesh, buildingMeshUrban,
-						  buildingMeshSuburban, buildingMeshRural,roadMeshStreetTex,roadMeshHighwayTex,
-						  sidewalkMeshTex, urbanTex, suburbanTex,
-						  ruralTex, roofUrbanTex, roofSuburbanTex, roofRuralTex, roadTex, sidewalkTex,
-						  useUrban, useSuburban, useRural,
-						  useRoofUrban, useRoofSuburban, useRoofRural, useRoadTex, useSidewalkTex);
+	Draw3DMeshesIfEnabled(
+		gui, is3D,
+		lineShader,
+		litShader,
+		frame.viewProjection,
+
+		roadMeshStreet,
+		roadMeshHighway,
+		sidewalkMesh,
+		buildingMesh,
+
+		buildingMeshUrban,
+		buildingMeshSuburban,
+		buildingMeshRural,
+
+		roofMeshUrban,
+		roofMeshSuburban,
+		roofMeshRural,
+
+		windowMeshTex,
+
+		roadMeshStreetTex,
+		roadMeshHighwayTex,
+		sidewalkMeshTex,
+
+		urbanTex, suburbanTex, ruralTex,
+		roofUrbanTex, roofSuburbanTex, roofRuralTex,
+		roadTex, sidewalkTex,
+		windowTex,
+
+		useUrban, useSuburban, useRural,
+		useRoofUrban, useRoofSuburban, useRoofRural,
+		useRoadTex, useSidewalkTex,
+		useWindowTex
+	);
+
+	glDisable(GL_CULL_FACE);
+	skybox.Draw(camera, frame.aspect, is3D);
+	glEnable(GL_CULL_FACE);
+	glCullFace(GL_BACK);
+
+	glDisable(GL_CULL_FACE);
 
 	//ground 
 	GroundContext ground = DrawGroundAndGetExtents(
 		primitives,
 		primShader,
-		buildingTexShader,
+		litShader,
 		frame.viewProjection,
 		city,
 		useGroundTex,
@@ -1464,6 +1626,9 @@ while (!glfwWindowShouldClose(window))
 		groundMeshTex,
 		groundPT
 	);
+
+	glEnable(GL_CULL_FACE);
+	glCullFace(GL_BACK);
 
 	//export request
 	HandleExportIfRequested(gui, city, ground, roadHighwayTris, roadStreetTris, sidewalkTris, buildingTriVerts, buildingQuadVerts, buildingRoofQuadVerts, buildingRoofTriVerts, buildingWindowQuadVerts, buildingWindowTriVerts);

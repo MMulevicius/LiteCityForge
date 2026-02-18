@@ -1,6 +1,6 @@
-#include "Primitives.h"
+#include "Core/Primitives.h"
 #include <glm/gtc/type_ptr.hpp>
-#include <Shader.h>
+#include <Rendering/Shader.h>
 
 // destructor to free GPU buffers
 Primitives::~Primitives()
@@ -76,7 +76,7 @@ void Primitives::DrawGround(Shader& shader, const glm::mat4& viewProjection, con
     glUniformMatrix4fv(glGetUniformLocation(shader.ID, "uModel"), 1, GL_FALSE, glm::value_ptr(model));
 
     //color
-    glUniform3f(glGetUniformLocation(shader.ID, "uColor"), 0.2f, 0.3f, 0.3f);
+    glUniform3f(glGetUniformLocation(shader.ID, "uColor"), 0.05f, 0.20f, 0.05f);
 
     //city center + radius 
     float x0 = centerXZ.x - halfWidth;

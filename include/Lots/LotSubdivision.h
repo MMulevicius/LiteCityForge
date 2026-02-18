@@ -1,7 +1,7 @@
 #pragma once
-#include "RoadNetwork.h"
-#include "LotTypes.h"
-#include "LotParams.h"
+#include "Road/RoadNetwork.h"
+#include "Lots/LotTypes.h"
+#include "Lots/LotParams.h"
 
 namespace road
 {

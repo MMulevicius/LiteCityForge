@@ -1,7 +1,7 @@
-#include "Road/BuildingRenderer.h"
-#include "Road/LotSubdivision.h"   
+#include "Rendering/BuildingRenderer.h"
+#include "Lots/LotSubdivision.h"   
 #include <glm/gtc/type_ptr.hpp>
-#include "Shader.h"
+#include "Rendering/Shader.h"
 #include <array>       
 #include <algorithm>  
 #include <cstddef>
@@ -459,7 +459,7 @@ namespace road
         const float urbanParapetH = 0.10f;
         const float subParapetH   = 0.08f;
         const float ruralParapetH = 0.05f;
-        const float roofEps = 0.0015f;
+        const float roofEps = 0.01f;
 
         for (const auto& lot : lots.lots)
         {
@@ -734,7 +734,7 @@ namespace road
         const float windowInsetFromEdges = 0.18f; // margins on wall
         const float windowW = 0.22f;
         const float windowH = 0.22f;
-        const float wallEps = 0.002f;             // offset from wall to avoid z-fighting
+        const float wallEps = 0.01f;             // offset from wall to avoid z-fighting
         const float sillY = 0.08f;                // from floor base
 
         for (const auto& lot : lots.lots)

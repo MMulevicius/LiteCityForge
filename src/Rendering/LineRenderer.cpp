@@ -1,6 +1,6 @@
-#include "Road/LineRenderer.h"
+#include "Rendering/LineRenderer.h"
 #include <glm/gtc/type_ptr.hpp>
-#include "Shader.h"
+#include "Rendering/Shader.h"
 
 namespace road
 {

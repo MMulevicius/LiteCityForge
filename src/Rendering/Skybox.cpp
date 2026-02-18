@@ -1,4 +1,4 @@
-#include "Skybox.h"
+#include "Rendering/Skybox.h"
 #include <glm/gtc/matrix_transform.hpp>
 #include <iostream>
 #include <stb_image/stb_image.h>
@@ -56,7 +56,7 @@ bool Skybox::Initialize(const std::string& directory)
     glBindVertexArray(0);
 
     // shader
-    mShader = new Shader("../include/skybox.vert", "../include/skybox.frag");
+    mShader = new Shader("../include/Shaders/skybox.vert", "../include/Shaders/skybox.frag");
 
     // set sampler once
     mShader->use();

@@ -2,8 +2,8 @@
 #include <GLFW/glfw3.h>
 #include <string>
 #include "Road/RoadParams.h"
-#include "Road/LotParams.h"
-#include "Road/LotTypes.h"
+#include "Lots/LotParams.h"
+#include "Lots/LotTypes.h"
 
 class Gui 
 {
@@ -19,6 +19,7 @@ private:
     // building material / texture UI
     bool mShowBuildingMaterialsWindow = false;
 
+    // single texture selection UI
     struct TextureSlot
     {
         bool isImported = false;
@@ -29,7 +30,7 @@ private:
         bool requestApply = false;
         bool requestClear = false;
     };
-
+    // use of texture slots
     TextureSlot mBuildingTextures[3];
     TextureSlot mRoofTextures[3];
     TextureSlot mRoadTexture;
@@ -48,7 +49,6 @@ private:
     bool mShowFootprints = false;
 
     //building details toggles rendering
-    bool mRenderBuildingsBase = true;
     bool mRenderBuildingsRoofs = false;
     bool mRenderBuildingsWindows = false;
 
@@ -141,27 +141,32 @@ public:
     bool ShowFootprints() const { return mShowFootprints; }
 
     //building details toggles
-    bool RenderBuildingBase() const {return mRenderBuildingsBase; }
+    //bool RenderBuildingBase() const {return mRenderBuildingsBase; }
     bool RenderBuildingRoofs() const {return mRenderBuildingsRoofs; }
     bool RenderBuildingWindows() const {return mRenderBuildingsWindows; }
 
+    //export toggles 
     bool ExportBuildingBase() const {return mExportBuildingsBase; }
     bool ExportBuildingRoofs() const {return mExportBuildingsRoofs; }
     bool ExportBuildingWindows() const {return mExportBuildingsWindows; }
 
+    //window texture
     bool ConsumeWindowTextureApply(std::string& outPath);
     bool ConsumeWindowTextureClear();
 
-
+    //close application
     bool WantsGenerate();
     bool WantsQuit();
 
+    //camera reset
     bool ConsumeResetCamera();
     bool ConsumeGuiRecreateRequest();
 
+    //building texture
     bool ConsumeBuildingTextureApply(road::LotZone zone, std::string& outPath);
     bool ConsumeBuildingTextureClear(road::LotZone zone);
 
+    //roof texture
     bool ConsumeRoofTextureApply(road::LotZone zone, std::string& outPath);
     bool ConsumeRoofTextureClear(road::LotZone zone);
 
@@ -175,8 +180,7 @@ public:
     bool ConsumeGroundTextureApply(std::string& outPath);
     bool ConsumeGroundTextureClear();
 
-
-
+    //params accessor
     float GetCityRadius() const { return mRoadParams.cityRadius; }
     const road::LotParams& GetLotParams() const { return mLotParams; }
     const road::RoadParams& GetParams() const { return mRoadParams; }

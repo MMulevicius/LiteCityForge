@@ -4,6 +4,9 @@
 
 namespace export3d
 {
+    //computes vector length manually
+    // on extremely small lengths it returns a fallback normal
+    //otherwise returns a unit vector
     static glm::vec3 SafeNormalize(const glm::vec3& v)
     {
         float len = std::sqrt(v.x*v.x + v.y*v.y + v.z*v.z);
@@ -11,12 +14,14 @@ namespace export3d
         return v / len;
     }
 
+    // opens .mtl file for writing
     bool ObjWriter::WriteMtl(const std::string& mtlPath,
                              const std::vector<ObjMaterial>& materials)
     {
         std::ofstream out(mtlPath);
         if (!out.is_open()) return false;
 
+        //writes each material
         out << "# LiteCityForge materials\n";
         for (const auto& m : materials)
         {
@@ -29,6 +34,7 @@ namespace export3d
         return true;
     }
 
+    //opens obj for writing
     bool ObjWriter::WriteObj(const std::string& objPath,
                              const std::string& mtlFileName,
                              const std::vector<ObjMesh>& meshes)
@@ -36,6 +42,7 @@ namespace export3d
         std::ofstream out(objPath);
         if (!out.is_open()) return false;
 
+        //write header and link MTL
         out << "# LiteCityForge OBJ export\n";
         out << "# Mixed faces: traingle for meshes quads for buildings\n";
         if (!mtlFileName.empty())
@@ -44,16 +51,19 @@ namespace export3d
         int vBase = 1; // OBJ is 1-based
         int nBase = 1;
 
+        //loop over meshes
         for (const auto& mesh : meshes)
         {
             if (mesh.tris.empty() && mesh.quads.empty()) 
                 continue;
 
+            // begin a new object/group + apply material
             out << "\no " << mesh.name << "\n";
             out << "g " << mesh.name << "\n";
             if (!mesh.material.empty())
                 out << "usemtl " << mesh.material << "\n";
 
+            // count faces
             const int quadCount = (int)mesh.quads.size() / 4;
             const int triCount = (int)mesh.tris.size() / 3;
 
@@ -98,7 +108,7 @@ namespace export3d
                     << v2 << "//" << vn << " "
                     << v1 << "//" << vn << "\n";
             }
-
+            //write faces (triangles)
             for (int t = 0; t < triCount; ++t)
             {
                 const int vOffset = quadCount * 4;
@@ -112,7 +122,7 @@ namespace export3d
                     << v2 << "//" << vn << " "
                     << v1 << "//" << vn << "\n";
             }
-
+            //advance base indices for the next mesh
             vBase += (int)mesh.quads.size() + (int)mesh.tris.size();
             nBase += quadCount + triCount;
         }
