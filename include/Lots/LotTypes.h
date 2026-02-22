@@ -6,8 +6,10 @@
 
 namespace road
 {
+    //id 
     using LotId = std::uint32_t;
 
+    //lot types
     enum class LotZone : std::uint8_t
     {
         Urban = 0,
@@ -15,6 +17,7 @@ namespace road
         Rural = 2
     };
 
+    //lot details
     struct Lot
     {
         LotId lotId{};

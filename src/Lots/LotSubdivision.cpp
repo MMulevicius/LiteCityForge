@@ -8,7 +8,7 @@
 
 namespace road
 {
-    static bool gDebugLotFloors = true; 
+    static bool gDebugLotFloors = false; 
     static int  gDebugPrinted   = 0;
     static int  gDebugPrintMax  = 40;
 
@@ -17,8 +17,6 @@ namespace road
     {
         return 0.25f * (p[0] + p[1] + p[2] + p[3]);
     }
-
-    
 
     static float Clamp01(float x)
     {

@@ -50,8 +50,6 @@ void ShadowMap::BeginDepthPass()
     glBindFramebuffer(GL_FRAMEBUFFER, mFBO);
     glClear(GL_DEPTH_BUFFER_BIT);
 
-    // DO NOT change cull face here.
-    // Your meshes have mixed winding, so GL_FRONT culling creates holes in the shadow map.
 }
 
 void ShadowMap::EndDepthPass(int w, int h)

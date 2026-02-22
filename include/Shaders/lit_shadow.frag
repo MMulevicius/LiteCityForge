@@ -11,10 +11,14 @@ uniform int uUseTexture;
 uniform vec3 uColor;
 
 uniform sampler2D uShadowMap;
-uniform vec3 uLightDir;   // direction of light rays (from light -> scene), normalized
+ // direction of light rays (from light -> scene), normalized
+uniform vec3 uLightDir;  
+uniform int uEnableShadows;
 
 float ShadowFactor(vec4 lightSpacePos, vec3 normal)
 {
+    if (uEnableShadows == 0) return 1.0;
+
     vec3 proj = lightSpacePos.xyz / lightSpacePos.w;
     proj = proj * 0.5 + 0.5;
 
@@ -48,12 +52,10 @@ void main()
 {
     vec3 albedo = (uUseTexture != 0) ? texture(uTexture, vUV).rgb : uColor;
 
-    // Flat geometric normal from derivatives
     vec3 dx = dFdx(vWorldPos);
     vec3 dy = dFdy(vWorldPos);
     vec3 N  = normalize(cross(dx, dy));
 
-    // IMPORTANT: fix inconsistent winding (this is what causes “checker” lighting)
     if (!gl_FrontFacing)
         N = -N;
 

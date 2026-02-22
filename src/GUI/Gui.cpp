@@ -1,4 +1,5 @@
 #include "GUI/Gui.h"
+#include <GLFW/glfw3.h>
 #include "imgui.h"
 #include "backends/imgui_impl_glfw.h"
 #include "backends/imgui_impl_opengl3.h"
@@ -10,10 +11,87 @@
 #include <filesystem>
 
 
+// common image filter used across texture import dialogs
+static const char* kImageFileFilter = "Image files{.png,.jpg,.jpeg,.bmp,.tga},.*";
+
+// draws a standard UI block for a TextureSlot:
+// imported path display
+// import / Apply / Clear buttons
+// handles ImGuiFileDialog result and writes into slot.importedPath
+void Gui::DrawTextureSlotUI(
+    TextureSlot& slot,
+    const char* headerLabel,
+    const char* dialogKey,
+    const char* dialogTitle
+)
+{
+    ImGui::SeparatorText(headerLabel);
+
+    // Imported path label
+    if (slot.isImported && slot.importedPath[0] != '\0')
+        ImGui::TextWrapped("Imported: %s", slot.importedPath);
+    else
+        ImGui::TextUnformatted("Imported: (none)");
+
+    // Import
+    if (ImGui::Button((std::string("Import##") + dialogKey).c_str()))
+    {
+        IGFD::FileDialogConfig config;
+        config.flags = ImGuiFileDialogFlags_Modal;
+        config.path = std::filesystem::current_path().string();
+
+        ImGuiFileDialog::Instance()->OpenDialog(
+            dialogKey,
+            dialogTitle,
+            kImageFileFilter,
+            config
+        );
+    }
+
+    // Apply
+    ImGui::SameLine();
+    const bool canApply = slot.isImported && slot.importedPath[0] != '\0';
+    if (!canApply) ImGui::BeginDisabled();
+    if (ImGui::Button((std::string("Apply##") + dialogKey).c_str()))
+    {
+        slot.requestApply = true;
+        slot.isApplied = true;
+    }
+    if (!canApply) ImGui::EndDisabled();
+
+    // Clear
+    ImGui::SameLine();
+    if (ImGui::Button((std::string("Clear##") + dialogKey).c_str()))
+    {
+        slot.requestClear = true;
+        slot.isImported = false;
+        slot.isApplied = false;
+        slot.importedPath[0] = '\0';
+    }
+
+    // Dialog result handling
+    ImGui::SetNextWindowSize(ImVec2(900, 550), ImGuiCond_FirstUseEver);
+    if (ImGuiFileDialog::Instance()->Display(dialogKey))
+    {
+        if (ImGuiFileDialog::Instance()->IsOk())
+        {
+            auto selection = ImGuiFileDialog::Instance()->GetSelection();
+            if (!selection.empty())
+            {
+                const std::string picked = selection.begin()->second;
+                std::snprintf(slot.importedPath, IM_ARRAYSIZE(slot.importedPath), "%s", picked.c_str());
+                slot.isImported = true;
+            }
+        }
+        ImGuiFileDialog::Instance()->Close();
+    }
+}
+
+
 // finds project's assets/ folder
 static std::filesystem::path FindAssetsRoot()
 {
-    //
+    // 8 parent hoops to search for assets/textures
     std::filesystem::path p = std::filesystem::current_path();
     for (int i = 0; i < 8; ++i)
     {
@@ -393,27 +471,25 @@ void Gui::DrawGUI()
     //checkboxes
     ImGui::Checkbox("3D mode", &mEnable3D);
     ImGui::SameLine();
-
-    ImGui::Checkbox("Show Lots", &mShowLotDebug);
-    ImGui::SameLine();
-
-    ImGui::Checkbox("Show Sidewalks", &mShowSidewalks);
-    ImGui::SameLine();
-
-    ImGui::Checkbox("Show Gardens", &mShowGardens);
-    ImGui::SameLine();
-
-    ImGui::Checkbox("Show Footprints", &mShowFootprints);
-
-    ImGui::Separator();
-
-    //building detail toggles
-    ImGui::TextUnformatted("Building Details");
-    //ImGui::Checkbox("Render Base##RenderBase", &mRenderBuildingsBase);
-    ImGui::SameLine();
     ImGui::Checkbox("Render Roofs##RenderRoofs", &mRenderBuildingsRoofs);
     ImGui::SameLine();
     ImGui::Checkbox("Render Windows##RenderWindows", &mRenderBuildingsWindows);
+
+    ImGui::Separator();
+
+    ImGui::SetNextItemOpen(false, ImGuiCond_FirstUseEver);
+    if (ImGui::CollapsingHeader("Outline Toggle", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        ImGui::Checkbox("Show Roads", &mShowRoadLines);
+
+        ImGui::Checkbox("Show Lots", &mShowLotDebug);
+
+        ImGui::Checkbox("Show Sidewalks", &mShowSidewalks);
+
+        ImGui::Checkbox("Show Gardens", &mShowGardens);
+
+        ImGui::Checkbox("Show Footprints", &mShowFootprints);
+    }
 
     ImGui::Separator();
 
@@ -745,263 +821,106 @@ void Gui::DrawGUI()
                 }
             }
 
-            ImGui::SameLine();
-
-
-            auto DrawZone = [&](road::LotZone zone, const char* label, const char* dialogKey)
+            ImGui::SetNextItemOpen(false, ImGuiCond_FirstUseEver);
+            if (ImGui::CollapsingHeader("Wall Textures", ImGuiTreeNodeFlags_DefaultOpen))
             {
-                TextureSlot& slot = (zone == road::LotZone::Urban)
-                    ? mBuildingTextures[0]
-                    : (zone == road::LotZone::Suburban)
-                        ? mBuildingTextures[1]
-                        : mBuildingTextures[2];
+                auto DrawZone = [&](road::LotZone zone, const char* label, const char* dialogKey)
+                {
+                    TextureSlot& slot = (zone == road::LotZone::Urban)
+                        ? mBuildingTextures[0]
+                        : (zone == road::LotZone::Suburban)
+                            ? mBuildingTextures[1]
+                            : mBuildingTextures[2];
 
-                ImGui::SeparatorText(label);
+                    DrawTextureSlotUI(slot, label, dialogKey, "Choose Texture");
+                };
 
-                if (slot.isImported && slot.importedPath[0] != '\0')
-                    ImGui::TextWrapped("Imported: %s", slot.importedPath);
-                else
-                    ImGui::TextUnformatted("Imported: (none)");
 
-                if (ImGui::Button((std::string("Import##") + dialogKey).c_str()))
+                DrawZone(road::LotZone::Urban, "Urban", "ChooseUrbanTex");
+                DrawZone(road::LotZone::Suburban, "Suburban", "ChooseSuburbanTex");
+                DrawZone(road::LotZone::Rural, "Rural", "ChooseRuralTex");
+            }
+
+            ImGui::SetNextItemOpen(false, ImGuiCond_FirstUseEver);
+            if (ImGui::CollapsingHeader("Window Textures", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+
+                ImGui::TextUnformatted("Windows");
+
+                ImGui::Text("Imported:");
+                ImGui::TextWrapped("%s", mWindowTexPath.empty() ? "(none)" : mWindowTexPath.c_str());
+
+                if (ImGui::Button("Import##WinTex"))
                 {
                     IGFD::FileDialogConfig config;
-                    config.flags = ImGuiFileDialogFlags_Modal;
-                    config.path = std::filesystem::current_path().string();
-
-                    ImGuiFileDialog::Instance()->OpenDialog(
-                        dialogKey,
-                        "Choose Texture",
-                        "Image files{.png,.jpg,.jpeg,.bmp,.tga},.*",
-                        config
-                    );
+                    config.path = ".";
+                    ImGuiFileDialog::Instance()->OpenDialog("WinTexDlg", "Choose Window Texture",
+                                                            ".png,.jpg,.jpeg", config);
                 }
+                ImGui::SameLine();
+
+                bool canApplyWin = !mWindowTexPath.empty();
+                if (!canApplyWin) ImGui::BeginDisabled();
+                if (ImGui::Button("Apply##WinTex"))
+                {
+                    mWindowTexApplyRequested = true;
+                }
+                if (!canApplyWin) ImGui::EndDisabled();
 
                 ImGui::SameLine();
-                const bool canApply = slot.isImported && slot.importedPath[0] != '\0';
-                if (!canApply) ImGui::BeginDisabled();
-                if (ImGui::Button((std::string("Apply##") + dialogKey).c_str()))
+                if (ImGui::Button("Clear##WinTex"))
                 {
-                    slot.requestApply = true;
-                    slot.isApplied = true;
-                }
-                if (!canApply) ImGui::EndDisabled();
-
-                ImGui::SameLine();
-                if (ImGui::Button((std::string("Clear##") + dialogKey).c_str()))
-                {
-                    slot.requestClear = true;
-                    slot.isImported = false;
-                    slot.isApplied = false;
-                    slot.importedPath[0] = '\0';
+                    mWindowTexClearRequested = true;
                 }
 
-                ImGui::SetNextWindowSize(ImVec2(900, 550), ImGuiCond_FirstUseEver);
-                if (ImGuiFileDialog::Instance()->Display(dialogKey))
+                if (ImGuiFileDialog::Instance()->Display("WinTexDlg"))
                 {
                     if (ImGuiFileDialog::Instance()->IsOk())
                     {
-                        auto selection = ImGuiFileDialog::Instance()->GetSelection();
-                        if (!selection.empty())
-                        {
-                            const std::string picked = selection.begin()->second;
-                            std::snprintf(slot.importedPath, IM_ARRAYSIZE(slot.importedPath), "%s", picked.c_str());
-                            slot.isImported = true;
-                        }
+                        mWindowTexPath = ImGuiFileDialog::Instance()->GetFilePathName();
                     }
                     ImGuiFileDialog::Instance()->Close();
                 }
-            };
-
-            DrawZone(road::LotZone::Urban, "Urban", "ChooseUrbanTex");
-            DrawZone(road::LotZone::Suburban, "Suburban", "ChooseSuburbanTex");
-            DrawZone(road::LotZone::Rural, "Rural", "ChooseRuralTex");
-
-            ImGui::Separator();
-            ImGui::TextDisabled("Workflow: Import -> Apply (commit) -> Clear.");
-
-            ImGui::Separator();
-            ImGui::TextUnformatted("Windows");
-
-            ImGui::Text("Imported:");
-            ImGui::TextWrapped("%s", mWindowTexPath.empty() ? "(none)" : mWindowTexPath.c_str());
-
-            if (ImGui::Button("Import##WinTex"))
-            {
-                IGFD::FileDialogConfig config;
-                config.path = ".";
-                ImGuiFileDialog::Instance()->OpenDialog("WinTexDlg", "Choose Window Texture",
-                                                        ".png,.jpg,.jpeg", config);
-            }
-            ImGui::SameLine();
-
-            bool canApplyWin = !mWindowTexPath.empty();
-            if (!canApplyWin) ImGui::BeginDisabled();
-            if (ImGui::Button("Apply##WinTex"))
-            {
-                mWindowTexApplyRequested = true;
-            }
-            if (!canApplyWin) ImGui::EndDisabled();
-
-            ImGui::SameLine();
-            if (ImGui::Button("Clear##WinTex"))
-            {
-                mWindowTexClearRequested = true;
             }
 
-            if (ImGuiFileDialog::Instance()->Display("WinTexDlg"))
+
+            ImGui::SetNextItemOpen(false, ImGuiCond_FirstUseEver);
+            if (ImGui::CollapsingHeader("Roof Textures", ImGuiTreeNodeFlags_DefaultOpen))
             {
-                if (ImGuiFileDialog::Instance()->IsOk())
+                auto DrawRoofZone = [&](road::LotZone zone, const char* label, const char* dialogKey)
                 {
-                    mWindowTexPath = ImGuiFileDialog::Instance()->GetFilePathName();
-                }
-                ImGuiFileDialog::Instance()->Close();
+                    TextureSlot& slot = (zone == road::LotZone::Urban)
+                        ? mRoofTextures[0]
+                        : (zone == road::LotZone::Suburban)
+                            ? mRoofTextures[1]
+                            : mRoofTextures[2];
+
+                    DrawTextureSlotUI(slot, label, dialogKey, "Choose Roof Texture");
+                };
+
+
+                DrawRoofZone(road::LotZone::Urban, "Urban Roof", "ChooseUrbanRoofTex");
+                DrawRoofZone(road::LotZone::Suburban, "Suburban Roof", "ChooseSuburbanRoofTex");
+                DrawRoofZone(road::LotZone::Rural, "Rural Roof", "ChooseRuralRoofTex");
             }
 
-            ImGui::Separator();
-            ImGui::SeparatorText("Roofs");
 
-            auto DrawRoofZone = [&](road::LotZone zone, const char* label, const char* dialogKey)
+            ImGui::SetNextItemOpen(false, ImGuiCond_FirstUseEver);
+            if (ImGui::CollapsingHeader("Scene Textures", ImGuiTreeNodeFlags_DefaultOpen))
             {
-                TextureSlot& slot = (zone == road::LotZone::Urban)
-                    ? mRoofTextures[0]
-                    : (zone == road::LotZone::Suburban)
-                        ? mRoofTextures[1]
-                        : mRoofTextures[2];
-
-                ImGui::SeparatorText(label);
-
-                if (slot.isImported && slot.importedPath[0] != '\0')
-                    ImGui::TextWrapped("Imported: %s", slot.importedPath);
-                else
-                    ImGui::TextUnformatted("Imported: (none)");
-
-                if (ImGui::Button((std::string("Import##") + dialogKey).c_str()))
+                auto DrawSingleSlot = [&](TextureSlot& slot, const char* header, const char* dialogKey, const char* dialogTitle)
                 {
-                    IGFD::FileDialogConfig config;
-                    config.flags = ImGuiFileDialogFlags_Modal;
-                    config.path = std::filesystem::current_path().string();
-
-                    ImGuiFileDialog::Instance()->OpenDialog(
-                        dialogKey,
-                        "Choose Roof Texture",
-                        "Image files{.png,.jpg,.jpeg,.bmp,.tga},.*",
-                        config
-                    );
-                }
-
-                ImGui::SameLine();
-                const bool canApply = slot.isImported && slot.importedPath[0] != '\0';
-                if (!canApply) ImGui::BeginDisabled();
-                if (ImGui::Button((std::string("Apply##") + dialogKey).c_str()))
-                {
-                    slot.requestApply = true;
-                    slot.isApplied = true;
-                }
-                if (!canApply) ImGui::EndDisabled();
-
-                ImGui::SameLine();
-                if (ImGui::Button((std::string("Clear##") + dialogKey).c_str()))
-                {
-                    slot.requestClear = true;
-                    slot.isImported = false;
-                    slot.isApplied = false;
-                    slot.importedPath[0] = '\0';
-                }
-
-                ImGui::SetNextWindowSize(ImVec2(900, 550), ImGuiCond_FirstUseEver);
-                if (ImGuiFileDialog::Instance()->Display(dialogKey))
-                {
-                    if (ImGuiFileDialog::Instance()->IsOk())
-                    {
-                        auto selection = ImGuiFileDialog::Instance()->GetSelection();
-                        if (!selection.empty())
-                        {
-                            const std::string picked = selection.begin()->second;
-                            std::snprintf(slot.importedPath, IM_ARRAYSIZE(slot.importedPath), "%s", picked.c_str());
-                            slot.isImported = true;
-                        }
-                    }
-                    ImGuiFileDialog::Instance()->Close();
-                }
-            };
-
-            DrawRoofZone(road::LotZone::Urban, "Urban Roof", "ChooseUrbanRoofTex");
-            DrawRoofZone(road::LotZone::Suburban, "Suburban Roof", "ChooseSuburbanRoofTex");
-            DrawRoofZone(road::LotZone::Rural, "Rural Roof", "ChooseRuralRoofTex");
-
-            auto DrawSingleSlot = [&](TextureSlot& slot, const char* header, const char* dialogKey, const char* dialogTitle)
-            {
-                ImGui::SeparatorText(header);
-
-                if (slot.isImported && slot.importedPath[0] != '\0')
-                    ImGui::TextWrapped("Imported: %s", slot.importedPath);
-                else
-                    ImGui::TextUnformatted("Imported: (none)");
-
-                if (ImGui::Button((std::string("Import##") + dialogKey).c_str()))
-                {
-                    IGFD::FileDialogConfig config;
-                    config.flags = ImGuiFileDialogFlags_Modal;
-                    config.path = std::filesystem::current_path().string();
-
-                    ImGuiFileDialog::Instance()->OpenDialog(
-                        dialogKey,
-                        dialogTitle,
-                        "Image files{.png,.jpg,.jpeg,.bmp,.tga},.*",
-                        config
-                    );
-                }
-
-                ImGui::SameLine();
-                const bool canApply = slot.isImported && slot.importedPath[0] != '\0';
-                if (!canApply) ImGui::BeginDisabled();
-                if (ImGui::Button((std::string("Apply##") + dialogKey).c_str()))
-                {
-                    slot.requestApply = true;
-                    slot.isApplied = true;
-                }
-                if (!canApply) ImGui::EndDisabled();
-
-                ImGui::SameLine();
-                if (ImGui::Button((std::string("Clear##") + dialogKey).c_str()))
-                {
-                    slot.requestClear = true;
-                    slot.isImported = false;
-                    slot.isApplied = false;
-                    slot.importedPath[0] = '\0';
-                }
-
-                ImGui::SetNextWindowSize(ImVec2(900, 550), ImGuiCond_FirstUseEver);
-                if (ImGuiFileDialog::Instance()->Display(dialogKey))
-                {
-                    if (ImGuiFileDialog::Instance()->IsOk())
-                    {
-                        auto selection = ImGuiFileDialog::Instance()->GetSelection();
-                        if (!selection.empty())
-                        {
-                            const std::string picked = selection.begin()->second;
-                            std::snprintf(slot.importedPath, IM_ARRAYSIZE(slot.importedPath), "%s", picked.c_str());
-                            slot.isImported = true;
-                        }
-                    }
-                    ImGuiFileDialog::Instance()->Close();
-                }
-            };
-
-            ImGui::SeparatorText("Scene");
-
-            DrawSingleSlot(mRoadTexture,     "Roads",     "ChooseRoadTex",     "Choose Road Texture");
-            DrawSingleSlot(mSidewalkTexture, "Sidewalks", "ChooseSidewalkTex", "Choose Sidewalk Texture");
-            DrawSingleSlot(mGroundTexture,   "Ground",    "ChooseGroundTex",   "Choose Ground Texture");
+                    DrawTextureSlotUI(slot, header, dialogKey, dialogTitle);
+                };
 
 
-
+                DrawSingleSlot(mRoadTexture,     "Roads",     "ChooseRoadTex",     "Choose Road Texture");
+                DrawSingleSlot(mSidewalkTexture, "Sidewalks", "ChooseSidewalkTex", "Choose Sidewalk Texture");
+                DrawSingleSlot(mGroundTexture,   "Ground",    "ChooseGroundTex",   "Choose Ground Texture");
+            }
         }
         ImGui::End();
     }
-
-
 }
 
 

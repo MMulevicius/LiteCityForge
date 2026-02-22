@@ -1,7 +1,7 @@
 #version 330 core
 
 layout (location = 0) in vec3 aPos;
-layout (location = 1) in vec2 aUV; // will be unused for non-UV meshes (OK if VAO doesn't enable it)
+layout (location = 1) in vec2 aUV; 
 
 uniform mat4 uVP;
 uniform mat4 uModel;
@@ -16,7 +16,8 @@ void main()
     vec4 world = uModel * vec4(aPos, 1.0);
     vWorldPos = world.xyz;
 
-    vUV = aUV; // if mesh has no UV, it’ll be 0s (fine)
+    // if mesh has no UV, it’ll be 0s (fine)
+    vUV = aUV; 
     vLightSpacePos = uLightSpace * world;
 
     gl_Position = uVP * world;

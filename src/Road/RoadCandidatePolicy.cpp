@@ -9,17 +9,6 @@ namespace road
         return dist(rng);
     }
 
-    glm::vec2 RoadCandidatePolicy::TurnLeft(const glm::vec2& dir)
-    {
-        // 90 degrees left: (x,y) -> (-y, x)
-        return glm::vec2(-dir.y, dir.x);
-    }
-
-    glm::vec2 RoadCandidatePolicy::TurnRight(const glm::vec2& dir)
-    {
-        // 90 degrees right: (x,y) -> (y, -x)
-        return glm::vec2(dir.y, -dir.x);
-    }
     glm::vec2 RoadCandidatePolicy::RotateDeg(const glm::vec2& v, float deg)
     {
         float r = glm::radians(deg);
@@ -53,16 +42,6 @@ namespace road
             return snapped;
 
         return glm::normalize(dir);
-    }
-
-    std::pair<RoadType, float> RoadCandidatePolicy::ChooseBranchTypeAndLength(
-        const RoadParams& params, std::mt19937& rng, RoadType incomingType)
-    {
-        //highways may spawn street
-        if (incomingType == RoadType::Highway && Random01(rng) < params.streetFromHighwayChance)
-            return { RoadType::Street, params.streetLength };
-
-        return { RoadType::Street, params.streetLength };
     }
 
     std::vector<Candidate> RoadCandidatePolicy::SpawnNextCandidates(

@@ -39,7 +39,7 @@ namespace road
     void BuildLotLineVerts(const LotCollection& lots, std::vector<glm::vec3>& outLots, float y = 0.02f);
     void BuildGardenLineVerts(const LotCollection& lots, std::vector<glm::vec3>& outGardens, float y = 0.021f);
     void BuildFootprintLineVerts(const LotCollection& lots, std::vector<glm::vec3>& outFootprints, float y = 0.022f);
-
+        
 
     void BuildBlockOutlineVerts(const std::vector<Block>& blocks, std::vector<glm::vec3>& out, float y = 0.03f);
     void BuildBlockCentroidsVerts(const std::vector<Block>& blocks, std::vector<glm::vec3>& out, float y = 0.10f, float halfSize = 0.6f);

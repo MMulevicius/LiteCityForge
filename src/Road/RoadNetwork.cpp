@@ -5,6 +5,7 @@
 namespace road
 {
 
+
     NodeId RoadNetwork::AddNode(const glm::vec2 &p)
     {
         Node n;

@@ -47,7 +47,6 @@ namespace road
 
         RoadQuery(RoadNetwork& net, float cellSize);
 
-        void Build();
         void InsertNode(NodeId nodeId);
         void InsertSegment(SegId segId);
 

@@ -220,7 +220,6 @@ void BuildRoadSurfaceTriVerts(const RoadNetwork& net,
             const float segLen = std::sqrt(glm::dot(B - A, B - A));
             if (segLen < 1e-6f) continue;
 
-            // overlap just enough to hide the "bite"
             const float extendBase = std::min(swHalfW, segLen * 0.45f);
 
             const bool A_isJunction = (endpointUseCount[KeyFor(A)] >= 2);

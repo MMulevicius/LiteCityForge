@@ -1,9 +1,10 @@
 #pragma once 
-#include <GLFW/glfw3.h>
 #include <string>
 #include "Road/RoadParams.h"
 #include "Lots/LotParams.h"
 #include "Lots/LotTypes.h"
+
+struct GLFWwindow;
 
 class Gui 
 {
@@ -43,6 +44,7 @@ private:
     bool mQuitRequested = false;
 
     //debug toggles
+    bool mShowRoadLines = true;
     bool mShowLotDebug = false;
     bool mShowSidewalks = false;
     bool mShowGardens = false;
@@ -91,7 +93,7 @@ private:
     char mExportBaseName[64] = "city";
     char mExportDir[256] = "";
 
-    //export result feedback
+    //export result feedback22
     bool mHasLastExport = false;
     bool mLastExportOk = false;
     std::string mLastExportPath;
@@ -103,11 +105,17 @@ private:
     road::LotParams mLotParams;
     road::RoadParams mRoadParams;
 
+    void DrawTextureSlotUI(TextureSlot& slot,const char* headerLabel,const char* dialogKey,const char* dialogTitle);
+
+
+
 public:
     Gui() = default;
     ~Gui() = default;
 
+    //generation timer
     double GetLastGenerationMs() const { return mLastGenerationMs; }
+
 
     // export API for main.cpp
     bool ConsumeExportRequest(std::string& outDir,
@@ -133,8 +141,8 @@ public:
 
     // getters
     bool Is3DEnabled() const { return mEnable3D; }
-    bool _3DEnabled() const { return mEnable3D; }
 
+    bool ShowRoadLines() const {return mShowRoadLines; }
     bool ShowGardens() const { return mShowGardens; }
     bool ShowLotDebug() const { return mShowLotDebug; }
     bool ShowSideWalks() const { return mShowSidewalks; }

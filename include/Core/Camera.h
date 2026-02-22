@@ -7,29 +7,28 @@ class Camera
 private:
 
     // core pose
-    glm::vec3 mPos; // camera position in world space
-    glm::vec3 mTarget; // point camera looks at
-    glm::vec3 mUp; // up direction for "glm::lookAt"
+    glm::vec3 mPos; 
+    glm::vec3 mTarget; 
+    glm::vec3 mUp; 
 
     // 2D behaviour
-    float mSpeed; // pan speed in 2D mode
-    float mOrthoSize; // "zoom level" for orthographic projection (half-height of view volume)
-    float mFovDeg = 55.0f; // perspective FOV
+    float mSpeed; 
+    float mOrthoSize; 
+    float mFovDeg = 55.0f; 
 
     //mode and mouse state
-    bool mIs3D = false; //what mode the camera is currently using
+    bool mIs3D = false; 
     
     // for making sure that yaw/pitch doesn't jump when RMB is first pressed
     bool mMouseInit = false; 
-    double mLastMouseX = 0.0;//prevents the "first RMB frame jump"
+    double mLastMouseX = 0.0;
     double mLastMouseY = 0.0;
 
     //3D look and motion parameters
-    float mYawDeg = -45.0f; // camera rotation (in degrees)
+    float mYawDeg = -45.0f; 
     float mPitchDeg = -20.0f; 
-    float mMouseSens = 0.12f; // mouse sensitivity 
-    float mFlySpeed = 60.0f; // movement speed in 3D
-
+    float mMouseSens = 0.12f; 
+    float mFlySpeed = 60.0f; 
     glm::vec3 GetForwardFromAngles() const;
 
     
@@ -45,11 +44,11 @@ public:
 
 
     //detectors
-    void OnMouseMove(double xpos, double ypos, bool rmbDown); // updates angle when RMB is down 
+    void OnMouseMove(double xpos, double ypos, bool rmbDown);  
 
     //updaters
-    void UpdatePanXZ(GLFWwindow *window, float deltaTime); //only runs in 2D mode, reads WASD, movement.
-    void UpdateFly3D(GLFWwindow* window, float deltaTime); // runs in 3D only, moves with WASD, speed modifiers: SHIFT, CTRL.
+    void UpdatePanXZ(GLFWwindow *window, float deltaTime); 
+    void UpdateFly3D(GLFWwindow* window, float deltaTime); 
 
     //getters
     glm::mat4 GetVP(float aspect) const; // creates a view matrix 
@@ -59,9 +58,9 @@ public:
     float GetFlySpeed() const { return mFlySpeed; }
 
     //setters
-    void Set3DEnabled(bool enabled, const glm::vec2& cityCenterXZ, float cityRadius); //enabled == false (2D), enabled == true (3D)
+    void Set3DEnabled(bool enabled, const glm::vec2& cityCenterXZ, float cityRadius); 
     void SetOrthoSize(float size) { mOrthoSize = size;}
     void SetSpeed(float speed) {mSpeed = speed;}
     void SetFlySpeed(float s) { mFlySpeed = s;}
-    void ApplyScrollZoom(float scrollDelta); // only runs in 2D, multiplies mOrthoSize.
+    void ApplyScrollZoom(float scrollDelta);
 };

@@ -5,31 +5,11 @@
 
 namespace road 
 {
-    static float Clamp01(float x)
-    {
-        if (x < 0.0f) return 0.0f;
-        if (x > 1.0f) return 1.0f;
-        return x;
-    }
+
 
     RoadQuery::RoadQuery(RoadNetwork& net, float cellSize)
         : mNet(net), mCellSize(cellSize)
     {}
-
-    void RoadQuery::Build()
-    {
-        mNodeCells.clear();
-        mSegCells.clear();
-
-        for(const auto& n: mNet.Nodes())
-        {
-            InsertNode(n.id);
-        }
-        for (const auto& s: mNet.Segments())
-        {
-            InsertSegment(s.id);
-        }
-    }
 
     void RoadQuery::InsertNode(NodeId nodeId)
     {

@@ -15,7 +15,7 @@ public:
     bool Initialize(const std::string& directory);
     void Shutdown();
 
-    // draw only in 3D mode
+    // draw only in both 3D and 2D
     void Draw(const Camera& camera, float aspect, bool is3D);
 
 private:

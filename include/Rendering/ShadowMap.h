@@ -7,8 +7,10 @@ public:
     bool Init(int size);
     void Shutdown();
 
-    void BeginDepthPass();    // bind FBO + viewport
-    void EndDepthPass(int w, int h); // restore default framebuffer + viewport
+    // bind FBO + viewport
+    void BeginDepthPass();    
+    // restore default framebuffer + viewport
+    void EndDepthPass(int w, int h); 
 
     GLuint GetDepthTexture() const { return mDepthTex; }
     int GetSize() const { return mSize; }

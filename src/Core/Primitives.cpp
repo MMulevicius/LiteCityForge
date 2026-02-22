@@ -76,7 +76,7 @@ void Primitives::DrawGround(Shader& shader, const glm::mat4& viewProjection, con
     glUniformMatrix4fv(glGetUniformLocation(shader.ID, "uModel"), 1, GL_FALSE, glm::value_ptr(model));
 
     //color
-    glUniform3f(glGetUniformLocation(shader.ID, "uColor"), 0.05f, 0.20f, 0.05f);
+    glUniform3f(glGetUniformLocation(shader.ID, "uColor"), 0.5f, 0.5f, 0.5f);
 
     //city center + radius 
     float x0 = centerXZ.x - halfWidth;

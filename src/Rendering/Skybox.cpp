@@ -118,13 +118,24 @@ GLuint Skybox::LoadCubemap(const std::vector<std::string>& faces)
 
 void Skybox::Draw(const Camera& camera, float aspect, bool is3D)
 {
-    // only in 3D mode
-    if (!is3D) return; 
+    if (!mShader || mCubemapTex == 0 || mVAO == 0) return;
 
-    glm::mat4 view = glm::lookAt(camera.GetPos(), camera.GetTarget(), glm::vec3(0,1,0));
+    glm::mat4 view(1.0f);
 
-    // skybox stays centered on camera
-    view = glm::mat4(glm::mat3(view));
+    if (is3D)
+    {
+        // normal 3D: follow the camera orientation
+        view = glm::lookAt(camera.GetPos(), camera.GetTarget(), glm::vec3(0, 1, 0));
+        view = glm::mat4(glm::mat3(view));
+    }
+    else
+    {
+
+        glm::vec3 eye(0.0f, 0.0f, 0.0f);
+        glm::vec3 dir = glm::normalize(glm::vec3(0.2f, 0.25f, -1.0f)); // slight up tilt
+        view = glm::lookAt(eye, eye + dir, glm::vec3(0, 1, 0));
+        view = glm::mat4(glm::mat3(view));
+    }
 
     glm::mat4 proj = glm::perspective(glm::radians(55.0f), aspect, 0.1f, 5000.0f);
 
@@ -145,3 +156,4 @@ void Skybox::Draw(const Camera& camera, float aspect, bool is3D)
     glDepthMask(GL_TRUE);
     glDepthFunc(GL_LESS);
 }
+

@@ -56,8 +56,6 @@ void Camera::Set3DEnabled(bool enabled, const glm::vec2& cityCenterXZ, float cit
     }
 }
 
-
-
 //2D camera panning
 void Camera::UpdatePanXZ(GLFWwindow* window, float deltaTime)
 {
