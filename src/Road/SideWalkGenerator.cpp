@@ -10,11 +10,17 @@
 
 namespace road
 {
+    //returns the 2D dot product
     static inline float Dot(const glm::vec2& a, const glm::vec2& b) { return a.x * b.x + a.y * b.y; }
+
+    //returns the squared length of a 2D vector
     static inline float LenSq(const glm::vec2& v) { return Dot(v, v); }
 
+    //return a perpendicular 2D vector
     static inline glm::vec2 Perp(const glm::vec2& d) { return glm::vec2(-d.y, d.x); }
 
+    //safely normalises a vector
+    //returns zero for near zero input
     static inline glm::vec2 NormalizeSafe(const glm::vec2& v)
     {
         float l2 = LenSq(v);
@@ -22,18 +28,20 @@ namespace road
         return v * (1.0f / std::sqrt(l2));
     }
 
+    //appends a single 3D line segment for debug/render output
     static inline void AddLine(std::vector<glm::vec3>& out, const glm::vec2& a, const glm::vec2& b, float y)
     {
         out.emplace_back(a.x, y, a.y);
         out.emplace_back(b.x, y, b.y);
     }
 
+    //simple 2D line representation used for sidewalk join calculations 
     struct Line2
     {
         glm::vec2 p;
         glm::vec2 dir;
     };
-
+    //computes the intersection point of two infinite 2D lines
     static bool IntersectLines(const Line2& a, const Line2& b, glm::vec2& out)
     {
         float det = a.dir.x * b.dir.y - a.dir.y * b.dir.x;
@@ -45,6 +53,7 @@ namespace road
         return true;
     }
 
+    //computes the intersection point of two forward rays if it exists
     static bool IntersectRays(const Line2& a, const Line2& b, glm::vec2& out)
     {
         float det = a.dir.x * b.dir.y - a.dir.y * b.dir.x;
@@ -61,7 +70,7 @@ namespace road
         return true;
     }
 
-
+    //clamps a join point so sharp miters do not extend too far from the node
     static glm::vec2 ClampMiter(const glm::vec2& p, const glm::vec2& center, float maxDist)
     {
         glm::vec2 v = p - center;
@@ -72,6 +81,7 @@ namespace road
         return center + v * (maxDist / d);
     }
 
+    //returns the half-width of the given road type
     static inline float RoadHalfW(RoadType t, const RoadParams& p)
     {
         return (t == RoadType::Highway) ? p.highwayHalfWidth : p.streetHalfWidth;
@@ -85,6 +95,7 @@ namespace road
         bool hasR = false;
     };
 
+    //stores the left/right sidewalk join positions for one segment at a node
     static inline bool JoinTooFar(const glm::vec2& P,
                                 const glm::vec2& dirOut,
                                 RoadType type,
@@ -101,9 +112,10 @@ namespace road
         return t > maxAdvance;
     }
 
-
+    //clamps a value to the [-1, 1] range
     static inline float Clamp01(float x) { return std::max(-1.0f, std::min(1.0f, x)); }
 
+    //computes sin(theta/2) between two normalised direction vectors
     static inline float SinHalfAngle(const glm::vec2& a, const glm::vec2& b)
     {
         // a and b assumed normalized

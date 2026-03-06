@@ -13,16 +13,17 @@
 namespace road
 {
 
-
+    //returns a perpendicular 2D vector
     static inline glm::vec2 Perp(const glm::vec2& d) { return glm::vec2(-d.y, d.x); }
 
+    //normalises a vector safely returning zero for near-zero input
     static inline glm::vec2 NormalizeSafe(const glm::vec2& v)
     {
         const float l2 = glm::dot(v, v);
         if (l2 < 1e-8f) return glm::vec2(0.0f);
         return v * (1.0f / std::sqrt(l2));
     }
-
+    //appends one triangle to the output vertex list
     static inline void AddTri(std::vector<glm::vec3>& v,
                               const glm::vec3& a,
                               const glm::vec3& b,
@@ -31,6 +32,7 @@ namespace road
         v.push_back(a); v.push_back(b); v.push_back(c);
     }
 
+    //appends a quad as two triangles
     static inline void AddQuadAsTwoTris(std::vector<glm::vec3>& v,
                                         const glm::vec3& a,
                                         const glm::vec3& b,
@@ -160,7 +162,7 @@ void BuildRoadSurfaceTriVerts(const RoadNetwork& net,
     }
 }
 
-
+    //builds extruded traingle meshes for sidewalk surfaces
     void BuildSidewalkSurfaceTriVerts(const RoadNetwork& net,
                                     const RoadParams& params,
                                     std::vector<glm::vec3>& outSidewalkTris,

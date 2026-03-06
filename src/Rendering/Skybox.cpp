@@ -3,6 +3,7 @@
 #include <iostream>
 #include <stb_image/stb_image.h>
 
+//unit cube vertices used to render the skybox (36 verts, 12 triangles)
 static const float SKYBOX_VERTS[] = {
     // positions
     -1.0f,  1.0f, -1.0f,  -1.0f, -1.0f, -1.0f,   1.0f, -1.0f, -1.0f,
@@ -24,6 +25,7 @@ static const float SKYBOX_VERTS[] = {
      1.0f, -1.0f, -1.0f,  -1.0f, -1.0f,  1.0f,   1.0f, -1.0f,  1.0f
 };
 
+//loads the cubemap, creates cube VAO/VBO, and prepares the skybox shader
 bool Skybox::Initialize(const std::string& directory)
 {
     // faces:
@@ -45,7 +47,7 @@ bool Skybox::Initialize(const std::string& directory)
         return false;
     }
 
-    // skybox cube
+    // upload static cube mesh to GPU
     glGenVertexArrays(1, &mVAO);
     glGenBuffers(1, &mVBO);
     glBindVertexArray(mVAO);
@@ -55,7 +57,7 @@ bool Skybox::Initialize(const std::string& directory)
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
     glBindVertexArray(0);
 
-    // shader
+    // skybox shader uses a cubemap sampler 
     mShader = new Shader("../include/Shaders/skybox.vert", "../include/Shaders/skybox.frag");
 
     // set sampler once
@@ -66,6 +68,7 @@ bool Skybox::Initialize(const std::string& directory)
     return true;
 }
 
+//frees GPU buffers/textures and deletes the skybox shader instance
 void Skybox::Shutdown()
 {
     if (mVBO) glDeleteBuffers(1, &mVBO);
@@ -78,12 +81,14 @@ void Skybox::Shutdown()
     mShader = nullptr;
 }
 
+//loads 6 images and uploads them into a GL_TEXTURE_CUBE_MAP texture
 GLuint Skybox::LoadCubemap(const std::vector<std::string>& faces)
 {
     GLuint texID = 0;
     glGenTextures(1, &texID);
     glBindTexture(GL_TEXTURE_CUBE_MAP, texID);
 
+    //do not flip cubemap faces
     stbi_set_flip_vertically_on_load(false);
 
     int width, height, channels;
@@ -100,6 +105,7 @@ GLuint Skybox::LoadCubemap(const std::vector<std::string>& faces)
 
         GLenum format = (channels == 4) ? GL_RGBA : GL_RGB;
 
+        //upload this face into the correct cubemap slot
         glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
             0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
 
@@ -115,7 +121,7 @@ GLuint Skybox::LoadCubemap(const std::vector<std::string>& faces)
     glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
     return texID;
 }
-
+//renders the skybox as the scene background
 void Skybox::Draw(const Camera& camera, float aspect, bool is3D)
 {
     if (!mShader || mCubemapTex == 0 || mVAO == 0) return;
@@ -126,6 +132,7 @@ void Skybox::Draw(const Camera& camera, float aspect, bool is3D)
     {
         // normal 3D: follow the camera orientation
         view = glm::lookAt(camera.GetPos(), camera.GetTarget(), glm::vec3(0, 1, 0));
+        //remove translation from the view matrix so the skybox stays centered on the camera
         view = glm::mat4(glm::mat3(view));
     }
     else
@@ -133,6 +140,7 @@ void Skybox::Draw(const Camera& camera, float aspect, bool is3D)
 
         glm::vec3 eye(0.0f, 0.0f, 0.0f);
         glm::vec3 dir = glm::normalize(glm::vec3(0.2f, 0.25f, -1.0f)); // slight up tilt
+        //in 2d mode use a fixed view direction to keep the background stable
         view = glm::lookAt(eye, eye + dir, glm::vec3(0, 1, 0));
         view = glm::mat4(glm::mat3(view));
     }

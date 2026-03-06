@@ -31,10 +31,12 @@ static void CheckShaderErrors(unsigned int object, const std::string& type)
 
 Shader::Shader(const char* vertexPath, const char* fragmentPath)
 {
+    //read shader source files into strings
     std::ifstream vShaderFile, fShaderFile;
     vShaderFile.exceptions(std::ifstream::failbit | std::ifstream::badbit);
     fShaderFile.exceptions(std::ifstream::failbit | std::ifstream::badbit);
 
+    //load vertex and fragment shader source code from files
     std::string vertexCode, fragmentCode;
 
     try
@@ -57,6 +59,7 @@ Shader::Shader(const char* vertexPath, const char* fragmentPath)
         std::cout << "ERROR::SHADER::FILE_NOT_SUCCESSFULLY_READ\n";
     }
 
+    //compile vertex and fragment shaders
     const char* vShaderCode = vertexCode.c_str();
     const char* fShaderCode = fragmentCode.c_str();
 
@@ -71,18 +74,21 @@ Shader::Shader(const char* vertexPath, const char* fragmentPath)
     glCompileShader(fragment);
     CheckShaderErrors(fragment, "FRAGMENT");
 
+    //link compiled shader into a GPU shader program
     ID = glCreateProgram();
     glAttachShader(ID, vertex);
     glAttachShader(ID, fragment);
     glLinkProgram(ID);
     CheckShaderErrors(ID, "PROGRAM");
 
+    //delete individual shaders after linking
     glDeleteShader(vertex);
     glDeleteShader(fragment);
 }
 
 void Shader::use() const
 {
+    //activate this shader program for rendering
     glUseProgram(ID);
 }
 

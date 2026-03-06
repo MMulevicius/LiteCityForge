@@ -15,6 +15,7 @@ public:
     GLuint GetDepthTexture() const { return mDepthTex; }
     int GetSize() const { return mSize; }
 
+//framebuffer, depth texture for storing light-space and shadow map resolution
 private:
     GLuint mFBO = 0;
     GLuint mDepthTex = 0;

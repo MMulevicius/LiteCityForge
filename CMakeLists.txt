@@ -30,8 +30,6 @@ add_subdirectory(EXT_Depend/glfw-3.3.2)			#window oppener
 add_subdirectory(EXT_Depend/glad)				#opengl loader
 add_subdirectory(EXT_Depend/stb_image)			#loading immaged
 add_subdirectory(EXT_Depend/stb_truetype)		#loading ttf files
-#add_subdirectory(EXT_Depend/enet-1.3.17)		#networking
-#add_subdirectory(EXT_Depend/raudio)			#audio
 add_subdirectory(EXT_Depend/glm)				#math
 add_subdirectory(EXT_Depend/imgui-docking)		#ui
 add_subdirectory(EXT_Depend/gl2d)				#rendering

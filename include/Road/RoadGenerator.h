@@ -9,7 +9,7 @@ namespace road
     { 
         
     public:
-        float ComputePriority(const RoadParams &params, RoadType type, const glm::vec2 &pos) const;
-        RoadNetwork Generate(const RoadParams &params);
+        float ComputePriority(const RoadParams& params, RoadType type, const glm::vec2& pos) const;
+        RoadNetwork Generate(const RoadParams& params);
     };
 }

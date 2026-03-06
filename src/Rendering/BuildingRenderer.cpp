@@ -8,6 +8,7 @@
 
 namespace road
 {
+    //creates VAO/VBO and configures vertex attributes for building triangles
     bool BuildingRenderer::Initialize()
     {
         glGenVertexArrays(1, &mVAO);
@@ -26,6 +27,7 @@ namespace road
         return mVAO != 0 && mVBO != 0;
     }
 
+    //releases GPU resources used by the building renderer
     void BuildingRenderer::Shutdown()
     {
         if (mVBO) glDeleteBuffers(1, &mVBO);
@@ -34,7 +36,7 @@ namespace road
         mVAO = 0;
         mVertexCount = 0;
     }
-
+    //uploads generated building triangle vertices to the GPU
     void BuildingRenderer::Upload(const std::vector<glm::vec3>& triVerts)
     {
         mVertexCount = triVerts.size();
@@ -46,7 +48,7 @@ namespace road
                      GL_DYNAMIC_DRAW);
         glBindBuffer(GL_ARRAY_BUFFER, 0);
     }
-
+    //draws uploaded building geometry using the provided shader + VP matrix
     void BuildingRenderer::Draw(const Shader& shader, const glm::mat4& vp) const
     {
         if (mVertexCount == 0) return;
@@ -140,7 +142,7 @@ namespace road
     {
         return glm::vec3(p.x, y, p.y);
     }
-
+    //appends a single triangle to the output vertex list
     static inline void AddTri(std::vector<glm::vec3>& v,
                               const glm::vec3& a,
                               const glm::vec3& b,
@@ -150,7 +152,7 @@ namespace road
         v.push_back(b);
         v.push_back(c);
     }
-
+    // appends a quad to the output vertex list
     static inline void AddQuad(std::vector<glm::vec3>& v,
                                 const glm::vec3& a,
                                 const glm::vec3& b,
@@ -162,7 +164,7 @@ namespace road
         v.push_back(c);
         v.push_back(d);
     }
-
+    //appends a quad as two triangles to the output vertex list
     static inline void AddQuadAsTwoTris(std::vector<glm::vec3>& v,
                                         const glm::vec3& a,
                                         const glm::vec3& b,
@@ -173,7 +175,7 @@ namespace road
         AddTri(v, a, b, c);
         AddTri(v, a, c, d);
     }
-
+    //builds untextured building walls/roofs as triangle vertices from lot footprints
     void BuildBuildingTriVerts(const LotCollection& lots,
                                std::vector<glm::vec3>& outTriVerts,
                                float baseY,
@@ -217,7 +219,7 @@ namespace road
             AddQuadAsTwoTris(outTriVerts, t0, t1, t2, t3);
         }
     }
-
+    //builds building faces as quads 
     void BuildBuildingQuadVerts(const LotCollection& lots,
                             std::vector<glm::vec3>& outQuadVerts,
                             float baseY,
@@ -270,7 +272,7 @@ namespace road
         v.push_back({bPos, bUV});
         v.push_back({cPos, cUV});
     }
-
+    //appends a texture quad as two triangles
     static inline void AddQuadAsTwoTrisPT(std::vector<BuildingVertexPT>& v,
                                          const glm::vec3& aPos, const glm::vec2& aUV,
                                          const glm::vec3& bPos, const glm::vec2& bUV,
@@ -280,7 +282,7 @@ namespace road
         AddTriPT(v, aPos, aUV, bPos, bUV, cPos, cUV);
         AddTriPT(v, aPos, aUV, cPos, cUV, dPos, dUV);
     }
-
+    //builds textured building geometry and assigns UVs based on lot zone/type
     void BuildBuildingTriVertsTexturedByZone(const LotCollection& lots,
                                              std::vector<BuildingVertexPT>& outUrban,
                                              std::vector<BuildingVertexPT>& outSuburban,
@@ -380,7 +382,7 @@ namespace road
         if (len < 1e-6f) return glm::vec2(1, 0);
         return v / len;
     }
-
+    //returns signed polygon area
     static inline float SignedArea2(const std::vector<glm::vec2>& poly)
     {
         float a = 0.0f;
@@ -392,7 +394,7 @@ namespace road
         }
         return 0.5f * a;
     }
-
+    //insets a polygon toward its centroid by 'amount'
     static inline glm::vec2 InsetTowardCentroid(const glm::vec2& p, const glm::vec2& c, float inset)
     {
         glm::vec2 dir = c - p;
@@ -401,7 +403,7 @@ namespace road
         return p + (dir / len) * inset;
     }
 
-
+    //builds textured roof detail raingles
     void BuildRoofDetailTriVertsTexturedByZone(const LotCollection& lots,
                                            std::vector<BuildingVertexPT>& outUrban,
                                            std::vector<BuildingVertexPT>& outSuburban,
@@ -578,7 +580,7 @@ namespace road
         }
     }
 
-
+    //generates extra roof detail geometry
     void BuildRoofDetailVerts(const LotCollection& lots,
                             std::vector<glm::vec3>& outRoofQuads,
                             std::vector<glm::vec3>& outRoofTris,
@@ -723,7 +725,7 @@ namespace road
     }
 
 
-
+    //generates window quad geometry for building facades
     void BuildWindowDetailQuads(const LotCollection& lots,
                                     std::vector<glm::vec3>& outWindowQuads,
                                     float baseY,
@@ -734,7 +736,7 @@ namespace road
         const float windowInsetFromEdges = 0.18f; // margins on wall
         const float windowW = 0.22f;
         const float windowH = 0.22f;
-        const float wallEps = 0.01f;             // offset from wall to avoid z-fighting
+        const float wallEps = 0.05f;             // offset from wall to avoid z-fighting
         const float sillY = 0.08f;                // from floor base
 
         for (const auto& lot : lots.lots)

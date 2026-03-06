@@ -11,24 +11,28 @@ namespace road
     using NodeId = std::uint32_t;
     using SegId = std::uint32_t;
 
+    //road types 
     enum class RoadType : std::uint8_t
     {
         Street = 0,
         Highway = 1
     };
 
+    //generation phases
     enum class GenerationPhase
     {
         Streets,
         Highways
     };
 
+    //node parameters
     struct Node
     {
         NodeId id{};
         glm::vec2 pos{};
     };
 
+    //segment parameters
     struct Segment
     {
         SegId id{};

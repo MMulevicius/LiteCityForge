@@ -45,10 +45,10 @@ private:
 
     //debug toggles
     bool mShowRoadLines = true;
-    bool mShowLotDebug = false;
-    bool mShowSidewalks = false;
-    bool mShowGardens = false;
-    bool mShowFootprints = false;
+    bool mShowLotDebug = true;
+    bool mShowSidewalks = true;
+    bool mShowGardens = true;
+    bool mShowFootprints = true;
 
     //building details toggles rendering
     bool mRenderBuildingsRoofs = false;

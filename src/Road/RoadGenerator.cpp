@@ -29,6 +29,7 @@ namespace road
     //geometry helper 
     static float Cross2(const glm::vec2& a, const glm::vec2& b) { return a.x * b.y - a.y * b.x;}
 
+    //computes the shortes distance from point p to line segment (a, b)
     static float DistPointtoSeg (const glm::vec2& p, const glm::vec2& a, const glm::vec2& b)
     {
         glm::vec2 ab = b - a;
@@ -42,6 +43,7 @@ namespace road
 
     }
 
+    //return true if the node is connected to at least one highway segment
     static bool IsHighwayNode(const RoadNetwork& net, NodeId id)
     {
         for (const auto& s : net.Segments())
@@ -51,7 +53,7 @@ namespace road
         }
         return false;
     }
-
+    //computes the minimum distance between two line segments
     static float SegSegMinDist(const glm::vec2& a0, const glm::vec2& a1,
                             const glm::vec2& b0, const glm::vec2& b1)
     {
@@ -62,7 +64,7 @@ namespace road
         return std::min(std::min(d0, d1), std::min(d2, d3));
     }
 
-
+    //checks if a direction vector is close to a grid alinged anle
     static bool IsDirectionNearGrid(const glm::vec2& dir, float stepDeg, float maxOffDeg)
     {
         glm::vec2 d = glm::normalize(dir);
@@ -75,7 +77,7 @@ namespace road
         return diff <= glm::radians(maxOffDeg);
     }
 
-
+    //generates initial steet candidates branching off existing highways
     static void SeedStreetsFromHighways(const RoadParams& params,
                                         std::mt19937& rng,
                                         const RoadNetwork& net,
@@ -120,7 +122,7 @@ namespace road
             else                    pushStreet(start, rightDir);
         }
     }
-
+    //tests if two segments intersect using a tolerance value
     static bool SegIntersectLoose(const glm::vec2& p, const glm::vec2& p2, const glm::vec2& q, const glm::vec2& q2, float eps)
     {
         glm::vec2 r = p2 - p;
@@ -141,6 +143,7 @@ namespace road
         return (t >= -eps && t <= 1.0f + eps && u >= -eps && u <= 1.0f + eps);
     }
 
+    //seeds the initial highway rays radiating from the city centre 
     static void SeedInitialRays(const RoadParams& params, std::mt19937& rng, NodeId center,
                                  std::priority_queue<Candidate, std::vector<Candidate>, CandGreater>& pq,
                                 const RoadGenerator& gen)
@@ -164,12 +167,12 @@ namespace road
         }
 
     }
-
+    //ensures the candidates endpoint remains within the city radius
     static bool PassesGlobalBounds(const RoadParams& params, const glm::vec2& endPos)
     {
         return glm::length(endPos - params.cityCenter) <= params.cityRadius;
     }
-
+    //prevents new roads from forming very small angles with existing ones
     static bool PassesMinAngleAtStart(const RoadParams& params, const RoadNetwork& net, const Candidate& cand)
     {
         if (params.minAngleDeg <= 0.0f)
@@ -203,7 +206,7 @@ namespace road
         }       
         return true;
     }
-
+    //attempts to snap the candidate endpoint to a nearby existing node
     static bool TrySnapEndpoint(const RoadParams& params, RoadQuery& query, const RoadNetwork& net,
                                 const Candidate& cand, glm::vec2& inOutEndPos, bool& outSnapped,
                                 NodeId& outSnapId)
@@ -223,7 +226,7 @@ namespace road
         }
         return true;
     }
-
+    //ensures minimum spacing between nodes is respected 
     static bool PassesMindNodeSpacing(const RoadParams& params, RoadQuery& query, const RoadNetwork& net,
                                         const Candidate& cand, const glm::vec2& endPos, bool snapped, NodeId snapId)
     {
@@ -239,7 +242,7 @@ namespace road
         }
         return true;
     }
-
+    //rejects candidates that intersect or run too close to existing segments
     static bool PassesIntersectionAndSegSpacing(const RoadParams& params, RoadQuery& query, const RoadNetwork& net,
                                                 const Candidate& cand, const glm::vec2& S, const glm::vec2& E)
     {
@@ -277,7 +280,7 @@ namespace road
         }
         return true;
     }
-
+    //runs all validation tests on a road candidate before acceptance
     static bool EvaluateCandidate(const RoadParams& params,std::mt19937& rng, RoadQuery& query, const RoadNetwork& net,
                                     const Candidate& cand, glm::vec2& outS, glm::vec2& outE, bool& outSnapped,
                                     NodeId& outSnapId)
@@ -389,7 +392,7 @@ namespace road
 
         return true;
     }
-
+    //accepts the candidate, adds it to the network, and enqueues new candidates
     static void AcceptCandidateAndEnequeuNext(const RoadParams& params, std::mt19937& rng, RoadNetwork& net,
                                                 RoadQuery& query, std::priority_queue<Candidate, std::vector<Candidate>, CandGreater>& pq,
                                                 const RoadGenerator& gen, const Candidate& cand, const glm::vec2& endPos,
@@ -406,10 +409,11 @@ namespace road
             endNodeId = net.AddNode(endPos);
             query.InsertNode(endNodeId);
         }
-
+        //insert newly generated candidate into the priority queue 
         SegId newSeg = net.AddSegment(cand.start, endNodeId, cand.type);
         query.InsertSegment(newSeg);
 
+        //generate the next possible road segment from the accepted node
         auto nextCandidates = RoadCandidatePolicy::SpawnNextCandidates(params, rng, endNodeId, cand.dir, cand.type, phase);
         const glm::vec2 endNodesPos = net.Nodes()[endNodeId - 1].pos;
 
@@ -439,17 +443,19 @@ namespace road
     }
 
     
-
+    //main entry point for road generation
     RoadNetwork RoadGenerator::Generate(const RoadParams &params)
     {
         RoadNetwork net;
 
+        //random number generator controlling road growth
         std::mt19937 rng(params.seed);
 
         std::priority_queue<Candidate, std::vector<Candidate>, CandGreater> pq;
 
         RoadQuery query(net, params.queryCellSize);
 
+        //insert initial road candidate at the city centre
         NodeId center = net.AddNode(params.cityCenter);
         query.InsertNode(center);
 
@@ -459,6 +465,8 @@ namespace road
 
         GenerationPhase phase = GenerationPhase::Highways;
 
+        //process candidates in priority order until the queue is empty
+        // or the maximum segment limit is reached
         while (!pq.empty() &&
                 iterations < params.maxIterations &&
                 (int)net.Segments().size() < params.maxSegments)

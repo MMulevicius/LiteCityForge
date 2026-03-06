@@ -6,6 +6,7 @@ namespace road
 {
 
 
+    //add a new intersection node to the road graph
     NodeId RoadNetwork::AddNode(const glm::vec2 &p)
     {
         Node n;
@@ -15,6 +16,7 @@ namespace road
         return n.id;
     }
 
+    //add a road segment connecting two existing nodes
     SegId RoadNetwork::AddSegment(NodeId a, NodeId b, RoadType type)
     {
         Segment s;
@@ -26,6 +28,7 @@ namespace road
         return s.id;
     }
 
+    //clears the road graph and resets node/segment ID counters
     void RoadNetwork::Clear()
     {
         mNodes.clear();
@@ -34,13 +37,13 @@ namespace road
         mNextSegId = 1;
     }
 
-    //for lot creation
+    //appends a single line segment as two vertices
     static inline void AddLine(std::vector<glm::vec3>& v, const glm::vec3& a, const glm::vec3& b)
     {
         v.push_back(a);
         v.push_back(b);
     }
-
+    //converts a polygon outline into line vertices for rendering/debug drawing 
     static void AddPolygonsAsLines(std::vector<glm::vec3>& v, const std::vector<glm::vec2>& poly, float y)
     {
         if (poly.size() < 2) return;
@@ -56,6 +59,7 @@ namespace road
         }
     }
 
+    //builds seperate line vertex buffers for highways and streets
     void BuildRoadLineVerts(const RoadNetwork& net, std::vector<glm::vec3>& outHighways,
                             std::vector<glm::vec3>& outStreets, float y)
     {
@@ -81,6 +85,7 @@ namespace road
         }
     }
 
+    //builds linne vertices for lot boundary outlines
     void BuildLotLineVerts(const LotCollection& lots, std::vector<glm::vec3>& outLots, float y)
     {
         outLots.clear();
@@ -144,7 +149,7 @@ namespace road
         return false;
 
     }
-
+    //counts segment intersections that have not been split into ndoes
     int CountUnsplitIntersections(const road::RoadNetwork& net)
     {
         int count = 0;

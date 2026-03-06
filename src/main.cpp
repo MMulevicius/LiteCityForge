@@ -41,10 +41,11 @@
 static float gScrollY = 0.0f;
 double gLastGenerationMs = 0.0;
 
+//controls the delayed city-generation overlay workflow
 static bool gShowGeneratingOverlay = false;
 static bool gGeneratePending       = false;
 
-//struct definitions
+//context structs used to group related runtime state
 struct CityContext
 {
 	float cityR = 0.0f;
@@ -192,8 +193,10 @@ struct InitializationContext
 	Camera camera;
 };
 
+
 namespace
 {
+
 	BuildingContext sBuilding;
 	RoadContext sRoads;
 	LotContext sLots;
@@ -201,7 +204,7 @@ namespace
 	InitializationContext sInit;
 
 
-
+	//draws a simple modal-style overlay while city generation is in progress
 	static void DrawGeneratingOverlay()
 	{
 		if (!gShowGeneratingOverlay) return;
@@ -225,8 +228,7 @@ namespace
 	}
 
 
-
-	//print helper
+	//prints the current road-generation parameters for debugging
 	void PrintRoadParams(const road::RoadParams& rp)
 	{
 		std::cout
@@ -237,7 +239,7 @@ namespace
 		<< "\n";
 	}
 
-
+	//converts plain triangle vertices into textured vertices using world-space XZ UV mapping
 	void ConvertTriVertsToPT_WorldXZ(const std::vector<glm::vec3>& in,
                                     std::vector<road::BuildingVertexPT>& out,
                                     float uvMetersPerTile)
@@ -257,6 +259,7 @@ namespace
         }
     }
 
+	//builds a textured ground quad as two triangles
     void BuildGroundPT(std::vector<road::BuildingVertexPT>& out,
                        const glm::vec2& centerXZ,
                        float halfW,
@@ -285,7 +288,7 @@ namespace
         out.push_back({d, UV(d)});
     }
 
-
+	//build road and sidewalk surface meshes then uploads them to GPU renderers
 	void BuildAndUploadRoadAndSidewalkMeshes(
         const road::RoadNetwork& roadNet,
         const road::RoadParams& roadParams,
@@ -328,6 +331,7 @@ namespace
                   << "\n";
     }
 
+	//builds and uploads debug line geometry for highways and streets
 	void BuildAndUploadRoadLineVerts(const road::RoadNetwork& roadNet, road::LineRenderer& highwayLines,
 									road::LineRenderer& streetLines)
 	{
@@ -359,6 +363,7 @@ namespace
 		highwayLines.Upload(highwayVerts);
 		streetLines.Upload(streetVerts);
 	}
+	//derives lot generation parameters from the current GUI and road settings
 	road::LotParams MakeLotParamsFromRoadParams(const Gui& gui, const road::RoadParams& roadParams)
 	{
 		road::LotParams lotParams = gui.GetLotParams();
@@ -373,7 +378,7 @@ namespace
 
 		return lotParams;
 	}
-
+	//prints lot zoning and garden-generation statistics for debugging
 	void PrintGardenPipelineStats(const road::LotCollection lots, const  road::LotParams& lotParams){
 		
 		int nUrban = 0, nSub = 0, nRural = 0;
@@ -424,6 +429,8 @@ namespace
 
 	}
 
+	//builds and uploads all lot-derived geometry:
+	//lots, sidewalks, gardens, footprints, buildings,roofs and windows
 	void BuildAndUploadLotDerivedGeometry(
 		const road::RoadNetwork& roadNet,
 		const road::RoadParams& roadParams,
@@ -456,6 +463,7 @@ namespace
 		const float baseY = 0.03f;
 		const float floorH = 0.35f;
 
+		//build debug line geometry for lot-related overlays
 		road::BuildLotLineVerts(lots, lotLineVerts, 0.02f);
 		road::BuildSidewalkLineVerts(roadNet, roadParams, sidewalkLineVerts, 0.06f);
 		road::BuildGardenLineVerts(lots, gardenLineVerts, 0.021f);
@@ -579,29 +587,31 @@ namespace
 		std::cout << "Garden verts: " << gardenLineVerts.size() << "\n";
 	}
 
-
+	//updates the OpenGL viewport and clears the frame buffers
 	void viewPort_Setup(GLFWwindow *window)
 	{
 		int w = 0, h = 0;
 		glfwGetFramebufferSize(window, &w, &h);
 		glViewport(0, 0, w, h);
 
-		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+		glClearColor(0.40f, 0.52f, 0.43f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	}
 
+	//handles basic window input such as closing on escape
 	void processInput(GLFWwindow *window)
 	{
 		if(glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
 			glfwSetWindowShouldClose(window, true);
 	}
-
+	//GLFW error callback
 	void error_callback(int error, const char *description)
 	{
 		std::cout << "Error: " <<  description << "\n";
 	}
 
+	//captures mouse wheel input for 2D zoom control
 	void ScrollCallback(GLFWwindow* window, double xoffset, double yoffset)
 	{
 		ImGuiIO& io = ImGui::GetIO();
@@ -614,6 +624,7 @@ namespace
 		gScrollY += (float)yoffset;
 	}
 
+	//loads a 2D texture from disk and creates an OpenGL texture object
 	GLuint LoadTexture2D(const std::string& path)
 	{
 		int w=0,h=0,channels=0;
@@ -639,6 +650,7 @@ namespace
 		return tex;
 	}
 
+	//deletes a texture safely and resets its handle
 	void SafeDeleteTexture(GLuint& tex)
 	{
 		if (tex != 0)
@@ -647,7 +659,7 @@ namespace
 			tex = 0;
 		}
 	}
-
+	//handles GUI requests for applying or clearing the window texture
 	void HandleWindowTextureRequests(Gui& gui, GLuint& windowTex, bool& useWindowTex)
 	{
 		std::string path;
@@ -665,7 +677,7 @@ namespace
 			useWindowTex = false;
 		}
 	}
-
+	//handles GUI requests for road, sidewlak and ground textures
 	void HandleSceneTextureRequests(Gui& gui,
                                     GLuint& roadTex, bool& useRoad,
                                     GLuint& sidewalkTex, bool& useSidewalk,
@@ -710,7 +722,7 @@ namespace
         }
     }
 
-
+	//handles GUI requests for urban, suburban and rural building textures
 	void HandleBuildingTextureRequests(
 		Gui& gui,
 		GLuint& urbanTex, GLuint& suburbanTex, GLuint& ruralTex,
@@ -759,7 +771,7 @@ namespace
 		}
 	}
 
-
+	//handles GUI requests for urban, suburban and rural roof textures
 	void HandleRoofTextureRequests(
 		Gui& gui,
 		GLuint& urbanRoof, GLuint& suburbanRoof, GLuint& ruralRoof,
@@ -805,8 +817,7 @@ namespace
 	}
 
 
-
-	//city context
+	//resolves the active city centre and radius for rendering camera logic
 	CityContext ResolveCityContext(bool showRoads, const Gui& gui, const road::RoadParams& roadParams) {
 
 		CityContext cityCTX;
@@ -819,7 +830,8 @@ namespace
 		}
 		return cityCTX;
 	}
-	//Camera toggle + reset
+
+	//applies GUI-driven camera mode changes and resets requests
 	bool UpdateCameraModeAndResetFromGui(Gui& gui, Camera& camera, const CityContext& cityCTX) {
 
 		static bool prev3D = false;
@@ -840,7 +852,7 @@ namespace
 
 	}
 
-	//compute deltaTime + framebuffer size + viewProjection matrix
+	//computes frame timing, frambuffer size and the current view projection matrix
 	FrameContext BeginFrameTimingAndVP(GLFWwindow* window, Camera& camera) {
 
 		FrameContext frameCTX;
@@ -857,13 +869,14 @@ namespace
 		return frameCTX;
 	}
 
+	//handles per-frame paltform input and viewport setup
 	void HandlePlatformInputAndViewport(GLFWwindow* window) {
 
 		processInput(window);
 		viewPort_Setup(window);
 	}
 
-	//camera controls
+	//updates free-fly 3D camera controls using mouse + keyboard input
 	void UpdateCamera3DControls(Camera& camera, GLFWwindow* window, float deltaTime) {
 			
 			bool rmbDown = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS;
@@ -878,13 +891,15 @@ namespace
 			camera.UpdateFly3D(window, deltaTime);
 	}
 
+	//updates 2D pan and zoom camera controls
 	void UpdateCamera2DControls(Camera& camera, GLFWwindow* window, float deltaTime) {
 			
 			camera.UpdatePanXZ(window, deltaTime);
 			camera.ApplyScrollZoom(gScrollY);
 			gScrollY = 0.0f;
 	}
-
+	
+	//routes camera updates to either 2D or 3D controls
 	void UpdateCameraPerFrame(Camera& camera, GLFWwindow* window, float deltaTime, bool is3D) {
 		
 		if (is3D) {
@@ -894,6 +909,7 @@ namespace
 		}
 	}
 
+	//draws the 3D city meshes, including roads, sidewalks, buildings, roofs and windows
 	void Draw3DMeshesIfEnabled(
 		Gui& gui, bool is3D,
 		Shader& lineShader,
@@ -1036,7 +1052,7 @@ namespace
 
 	}
 
-	//ground and returns for export
+	//draws he ground plane and returns its extents for export use
 	GroundContext DrawGroundAndGetExtents(
 		Primitives& primitives,
 		Shader& primShader,
@@ -1078,7 +1094,27 @@ namespace
 		return g;
 	}
 
+	static std::vector<glm::vec3> StripBuildingTopCapQuads(const std::vector<glm::vec3>& buildingQuadVerts)
+	{
 
+		std::vector<glm::vec3> out;
+		out.reserve(buildingQuadVerts.size()); 
+
+		const size_t vertsPerBuilding = 5 * 4; // 20
+		const size_t keepVerts = 4 * 4;        // 16
+
+		for (size_t i = 0; i + vertsPerBuilding <= buildingQuadVerts.size(); i += vertsPerBuilding)
+		{
+			// copy only wall quads
+			out.insert(out.end(),
+					buildingQuadVerts.begin() + i,
+					buildingQuadVerts.begin() + i + keepVerts);
+		}
+
+		return out;
+	}
+
+	//exports the generated city geometry if requested through th eGUI
 	void HandleExportIfRequested(Gui& gui, const CityContext& cityCTX, const GroundContext& ground,
 										const std::vector<glm::vec3>& roadHighwayTris,
 										const std::vector<glm::vec3>& roadStreetTris,
@@ -1107,7 +1143,11 @@ namespace
 			ex.roadStreetTris  = roadStreetTris;
 			ex.sidewalkTris    = sidewalkTris;
 			ex.buildingTris    = buildingTriVerts;
-			ex.buildingQuads   = buildingQuadVerts;
+
+			if (gui.ExportBuildingRoofs())
+				ex.buildingQuads = StripBuildingTopCapQuads(buildingQuadVerts);
+			else
+				ex.buildingQuads = buildingQuadVerts;
 
 			if (gui.ExportBuildingRoofs())
 				ex.buildingRoofQuads = buildingRoofQuadVerts;
@@ -1143,6 +1183,7 @@ namespace
 		
 	}
 
+	//draws optional debug overlays such as roads, lots, gardens and footprints
 	void DrawDebugLinesIfEnabled(bool showRoads, Gui& gui, Shader& lineShader, const glm::mat4& viewProjection,
 										road::LineRenderer& highwayLines, road::LineRenderer& streetLines,
 										road::LineRenderer& lotLines, road::LineRenderer& sidewalkLines,
@@ -1205,6 +1246,7 @@ namespace
 		}
 	}
 
+	//closes the application if the GUI requested a quit action
 	void HandleQuitIfRequested(Gui& gui, GLFWwindow* window)
 	{
 		if (gui.WantsQuit())
@@ -1213,24 +1255,28 @@ namespace
 		}
 	}
 
+	//finalises and renders the ImGui frame
 	void EndGuiFrame(Gui& gui)
 	{
 		gui.EndFrameGUI();
 
 	}
 
+	//begins a new ImGui frame and draws the GUI panels
 	void BeginGuiFrame(Gui& gui)
 	{
 		gui.BeginFrameGUI();
 		gui.DrawGUI();
 	}
 
+	//presents the rendered frame and processes window events 
 	void PresentAndPoll(GLFWwindow* window)
 	{
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 	}
 
+	//runs the full city generation pipeline and uploads all resulting geometry
 	void GenerateCityNow(
 		Gui& gui,
 		bool& showRoads,
@@ -1336,7 +1382,7 @@ namespace
 
 
 
-	//main generate function
+	//triggers city generation when requested by the GUI
 	void GenerateCityIfRequested(
 			Gui& gui,
 			bool& showRoads,
@@ -1446,7 +1492,7 @@ namespace
 			// build derived geometry (lots/sidewalk/gardens/footprints/buildings) + upload
 			BuildAndUploadLotDerivedGeometry(
 				roadNet, roadParams, lots,
-				lotLineVerts, sidewalkLineVerts, gardenLineVerts, footprintLineVerts, 
+				lotLineVerts, sidewalkLineVerts, gardenLineVerts, footprintLineVerts,
 				buildingTriVerts, buildingQuadVerts, buildingUrbanPT, buildingSubUrbanPT,
 				buildingRuralPT, lotLines, sidewalkLines, gardenLines, footprintLines,
 				buildingMesh, sBuilding.roofMesh, sBuilding.windowMesh,
@@ -1459,7 +1505,7 @@ namespace
 			gui.SetLastGenerationMs(gLastGenerationMs);
 	}
 
-	
+	//computes the directional light vector and light-space matrix for shadow mapping
 	static void ComputeLightSpace(
 		const CityContext& city,
 		glm::vec3& outLightDir,
@@ -1482,6 +1528,7 @@ namespace
 		outLightSpace = lightProj * lightView;
 	}
 
+	//renders the depth-only shadow pass from the light's perspective
 	static void RenderShadowPassIf3D(
 		bool is3D,
 		Gui& gui,
@@ -1584,6 +1631,7 @@ namespace
 		shadowMap.EndDepthPass(frame.w, frame.h);
 	}
 
+	//uploads lighting and shadow-map uniforms for the main lit shader
 	static void SetupLightingAndShadowUniforms(
 		Shader& litShader,
 		ShadowMap& shadowMap,
@@ -1611,6 +1659,7 @@ namespace
 		glUniform1i(glGetUniformLocation(litShader.ID, "uShadowMap"), 1);
 	}
 
+	//draws the skybox as the background environment
 	static void DrawSkyboxPass(
 		Skybox& skybox,
 		Camera& camera,
@@ -1619,11 +1668,16 @@ namespace
 	{
 		// You had a cull toggle around skybox — keep it encapsulated here
 		glDisable(GL_CULL_FACE);
-		skybox.Draw(camera, aspect, is3D);
+
+		if (is3D)
+		{
+			skybox.Draw(camera, aspect, is3D);
+		}
 		glEnable(GL_CULL_FACE);
 		glCullFace(GL_BACK);
 	}
 
+	//queues delayed generation and updates the loading overlay state
 	static void HandleGenerationOverlayAndQueue(Gui& gui)
 	{
 		// If user requested generation, show overlay first and delay generation to next frame
@@ -1639,7 +1693,7 @@ namespace
 
 }
 
-
+//initialises the widnow, openGL, GUI, renderers and the main frame loop
 int main(void)
 {
 
@@ -1652,10 +1706,6 @@ int main(void)
 	//request OpenGL 3.3 context
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-
-	//fullscreen
-	//GLFWmonitor* monitor = glfwGetPrimaryMonitor();
-	//const GLFWvidmode* mode = glfwGetVideoMode(monitor);
 
 	//create the window 1280x800
 	GLFWwindow *window = glfwCreateWindow(1280, 800, "LiteCityForge", nullptr, nullptr);
@@ -1765,7 +1815,7 @@ int main(void)
 
 
 
-//the frame loop
+//main application frame loop
 while (!glfwWindowShouldClose(window))
 {
 	//GUI
@@ -1811,9 +1861,6 @@ while (!glfwWindowShouldClose(window))
 
 	//input + viewport
 	HandlePlatformInputAndViewport(window);
-
-	//Draw skybox scene
-	//skybox.Draw(camera, frame.aspect, is3D);
 
 	//camera per-frame update + controls
 	UpdateCameraPerFrame(sInit.camera, window, frame.deltaTime, is3D);

@@ -1,11 +1,14 @@
 #include "Rendering/ShadowMap.h"
 #include <iostream>
 
+//creates the framebuffer and depth texture used for shadow mapping
 bool ShadowMap::Init(int size)
 {
     mSize = size;
 
+    //creates framebuffer that will stores shadow depth map
     glGenFramebuffers(1, &mFBO);
+    //creates depth texture that records distance from light's perspective
     glGenTextures(1, &mDepthTex);
 
     glBindTexture(GL_TEXTURE_2D, mDepthTex);
@@ -21,8 +24,10 @@ bool ShadowMap::Init(int size)
     glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, border);
 
     glBindFramebuffer(GL_FRAMEBUFFER, mFBO);
+    //attach the depth texture to the frambuffer
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, mDepthTex, 0);
 
+    //only a depth buffer is needed 
     glDrawBuffer(GL_NONE);
     glReadBuffer(GL_NONE);
 
@@ -34,7 +39,7 @@ bool ShadowMap::Init(int size)
 
     return ok;
 }
-
+//release openGL resources used by the shadow map
 void ShadowMap::Shutdown()
 {
     if (mDepthTex) glDeleteTextures(1, &mDepthTex);
@@ -43,7 +48,8 @@ void ShadowMap::Shutdown()
     mFBO = 0;
     mSize = 0;
 }
-
+//begin rendering the scene from the light's perspective
+//writes depth values into the shadow map
 void ShadowMap::BeginDepthPass()
 {
     glViewport(0, 0, mSize, mSize);
@@ -51,7 +57,7 @@ void ShadowMap::BeginDepthPass()
     glClear(GL_DEPTH_BUFFER_BIT);
 
 }
-
+//restor the default framebuffer and viewport after shadow rendering 
 void ShadowMap::EndDepthPass(int w, int h)
 {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);

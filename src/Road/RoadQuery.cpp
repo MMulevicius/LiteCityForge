@@ -6,11 +6,13 @@
 namespace road 
 {
 
-
+    //constructs the spatial query helper and sets the grid cell size
     RoadQuery::RoadQuery(RoadNetwork& net, float cellSize)
         : mNet(net), mCellSize(cellSize)
-    {}
-
+    {
+        
+    }
+    //inserts a node into the spatial hash grid
     void RoadQuery::InsertNode(NodeId nodeId)
     {
         const glm::vec2 pos = mNet.Nodes()[nodeId - 1].pos;
@@ -18,6 +20,7 @@ namespace road
         mNodeCells[k].push_back(nodeId);
     }
 
+    //inserts a segment into all grid cells overlapping its bounding box
     void RoadQuery::InsertSegment(SegId segId)
     {
         const auto& seg = mNet.Segments()[segId - 1];
@@ -36,7 +39,7 @@ namespace road
             mSegCells[k].push_back(segId);
         }
     }
-
+    //returns nodes within a radius of the query position
     std::vector<NodeId> RoadQuery::QueryNearbyNodes(const glm::vec2& pos, float radius) const
     {
         std::vector<CellKey> neigh;
@@ -67,6 +70,7 @@ namespace road
 
     }
 
+    //finds the nearest node within a snapping radius 
     bool RoadQuery::FindNearestNode(const glm::vec2& pos, float snapRadius, NodeId ignoreNodeId,
                                         NodeId& outNodeId, float& outDist) const
     {
@@ -97,6 +101,7 @@ namespace road
         return found;
     }
 
+    //returns segments near the candidate segment using AABB overlap
     std::vector<SegId> RoadQuery::QueryNearbySegments(const glm::vec2& a, const glm::vec2& b) const
     {
         glm::vec2 mn, mx;
@@ -117,7 +122,7 @@ namespace road
         temp.erase(std::unique(temp.begin(), temp.end()), temp.end());
         return temp;
     }
-
+    //converts a world position into integer grid cell coordinates
     CellKey RoadQuery::CellKeyFromPos(const glm::vec2& pos) const
     {
         return CellKey {
@@ -125,7 +130,7 @@ namespace road
             (int)std::floor(pos.y / mCellSize)
         };
     }
-
+    //collects the surrounding 3x3 grid cells around the given cell
     void RoadQuery::NeighborCellKeys(const CellKey& center, std::vector<CellKey>& out) const
     {
         out.clear();
@@ -134,13 +139,14 @@ namespace road
             for(int dy = -1; dy <= 1; ++dy)
                 out.push_back(CellKey{center.x + dx, center.y + dy});
     }
-
+    //computes the axis-aligned bounding box for a segment
     void RoadQuery::AABBForSegment(const glm::vec2& a, const glm::vec2& b, glm::vec2& outMin, glm::vec2& outMax) const
     {
         outMin = { std::min(a.x, b.x), std::min(a.y, b.y) };
         outMax = { std::max(a.x, b.x), std::max(a.y, b.y) };
     }
 
+    //finds all grid cells overlapping the given bounding box
     void RoadQuery::CellsOverlappingAABB(const glm::vec2& mn, const glm::vec2& mx, std::vector<CellKey>& outKeys) const
     {
         outKeys.clear();

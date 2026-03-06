@@ -19,11 +19,14 @@ public:
     void Draw(const Camera& camera, float aspect, bool is3D);
 
 private:
+    //vertex array and buffer for cube mesh and vertices
+    //cubemap texture
     GLuint mVAO = 0;
     GLuint mVBO = 0;
     GLuint mCubemapTex = 0;
 
     Shader* mShader = nullptr;
 
+    //loads the 6 cubemap faces
     GLuint LoadCubemap(const std::vector<std::string>& faces);
 };
