@@ -1708,7 +1708,7 @@ int main(void)
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 
 	//create the window 1280x800
-	GLFWwindow *window = glfwCreateWindow(1280, 800, "LiteCityForge", nullptr, nullptr);
+	GLFWwindow *window = glfwCreateWindow(1280, 800, "ProceduralCityGenerator", nullptr, nullptr);
 	if (!window)
 	{
 		glfwTerminate();

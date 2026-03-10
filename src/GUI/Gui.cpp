@@ -347,7 +347,7 @@ void Gui::DrawGUI()
 
     
     //title of the menu
-    ImGui::Begin("LiteCityForge");
+    ImGui::Begin("ProceduralCityGenerator");
 
 
 

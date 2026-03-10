@@ -16,7 +16,7 @@ if(MSVC)
 add_compile_options(/arch:AVX2) 
 endif()
 
-project(LiteCityForge)
+project(ProceduralCityGenerator)
 
 
 set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)

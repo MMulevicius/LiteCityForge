@@ -22,7 +22,7 @@ namespace export3d
         if (!out.is_open()) return false;
 
         //writes each material
-        out << "# LiteCityForge materials\n";
+        out << "# ProceduralCityGenerator materials\n";
         for (const auto& m : materials)
         {
             out << "\nnewmtl " << m.name << "\n";
@@ -43,7 +43,7 @@ namespace export3d
         if (!out.is_open()) return false;
 
         //write header and link MTL
-        out << "# LiteCityForge OBJ export\n";
+        out << "# ProceduralCityGenerator OBJ export\n";
         out << "# Mixed faces: traingle for meshes quads for buildings\n";
         if (!mtlFileName.empty())
             out << "mtllib " << mtlFileName << "\n";
