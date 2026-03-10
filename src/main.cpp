@@ -563,7 +563,7 @@ namespace
 			roofRenderTris.push_back(d);
 		}
 
-		// append any roof tris (rural gable end caps etc.)
+		// append any roof tris (rural gable end caps )
 		roofRenderTris.insert(roofRenderTris.end(), buildingRoofTriVerts.begin(), buildingRoofTriVerts.end());
 
 		std::cout << "Building tri verts: " << buildingTriVerts.size() << "\n";
@@ -730,7 +730,7 @@ namespace
 	{
 		std::string path;
 
-		// Urban
+		// urban
 		if (gui.ConsumeBuildingTextureApply(road::LotZone::Urban, path))
 		{
 			std::cout << "Loaded urbanTex=" << urbanTex << "\n";
@@ -744,7 +744,7 @@ namespace
 			useUrban = false;
 		}
 
-		// Suburban
+		// suburban
 		if (gui.ConsumeBuildingTextureApply(road::LotZone::Suburban, path))
 		{
 			SafeDeleteTexture(suburbanTex);
@@ -757,7 +757,7 @@ namespace
 			useSuburban = false;
 		}
 
-		// Rural
+		// rural
 		if (gui.ConsumeBuildingTextureApply(road::LotZone::Rural, path))
 		{
 			SafeDeleteTexture(ruralTex);
@@ -1003,7 +1003,7 @@ namespace
 			buildingMesh.Draw(litShader, viewProjection);
 		}
 
-		// Roofs
+		// roofs
 		if (gui.RenderBuildingRoofs())
 		{
 			glDisable(GL_CULL_FACE);
@@ -1025,7 +1025,7 @@ namespace
 
 
 
-		// Windows
+		// windows
 		if (gui.RenderBuildingWindows())
 		{
 			glEnable(GL_BLEND);
@@ -1575,7 +1575,7 @@ namespace
 
 		const bool anyBuildingTex = (useUrban || useSuburban || useRural);
 
-		// Roads
+		// roads
 		if (useRoadTex && roadTex != 0)
 		{
 			roadMeshStreetTex.Draw(shadowDepthShader, lightSpace, 0, false, glm::vec3(0));
@@ -1587,7 +1587,7 @@ namespace
 			roadMeshStreet.Draw(shadowDepthShader, lightSpace);
 		}
 
-		// Sidewalks
+		// sidewalks
 		if (useSidewalkTex && sidewalkTex != 0)
 		{
 			sidewalkMeshTex.Draw(shadowDepthShader, lightSpace, 0, false, glm::vec3(0));
@@ -1597,7 +1597,7 @@ namespace
 			sidewalkMesh.Draw(shadowDepthShader, lightSpace);
 		}
 
-		// Building bases
+		// building bases
 		if (anyBuildingTex)
 		{
 			buildingMeshUrban.Draw(shadowDepthShader, lightSpace, 0, false, glm::vec3(0));
@@ -1609,7 +1609,7 @@ namespace
 			buildingMesh.Draw(shadowDepthShader, lightSpace);
 		}
 
-		// Roofs
+		// roofs
 		if (gui.RenderBuildingRoofs())
 		{
 			roofMeshUrban.Draw(shadowDepthShader, lightSpace, 0, false, glm::vec3(0));
@@ -1617,13 +1617,13 @@ namespace
 			roofMeshRural.Draw(shadowDepthShader, lightSpace, 0, false, glm::vec3(0));
 		}
 
-		// Windows
+		// windows
 		if (gui.RenderBuildingWindows())
 		{
 			windowMeshTex.Draw(shadowDepthShader, lightSpace, 0, false, glm::vec3(0));
 		}
 
-		// Ground
+		// ground
 		groundMeshTex.Draw(shadowDepthShader, lightSpace, 0, false, glm::vec3(0));
 
 		glDisable(GL_POLYGON_OFFSET_FILL);
@@ -1666,7 +1666,7 @@ namespace
 		float aspect,
 		bool is3D)
 	{
-		// You had a cull toggle around skybox — keep it encapsulated here
+		
 		glDisable(GL_CULL_FACE);
 
 		if (is3D)
@@ -1680,14 +1680,14 @@ namespace
 	//queues delayed generation and updates the loading overlay state
 	static void HandleGenerationOverlayAndQueue(Gui& gui)
 	{
-		// If user requested generation, show overlay first and delay generation to next frame
+		//show overlay first and delay generation to next frame
 		if (gui.WantsGenerate())
 		{
 			gShowGeneratingOverlay = true;
 			gGeneratePending = true;
 		}
 
-		// Draw loading overlay on top of everything
+		// draw loading overlay on top of everything
 		DrawGeneratingOverlay();
 	}
 
@@ -1891,10 +1891,10 @@ while (!glfwWindowShouldClose(window))
 	//debug lines
 	DrawDebugLinesIfEnabled(sRoads.showRoads, gui, lineShader, frame.viewProjection, sRoads.highwayLines, sRoads.streetLines, sLots.lotLines, sRoads.sidewalkLines, sLots.gardenLines, sLots.footprintLines);
 
-	// If user requested generation, show overlay first and delay generation to next frame
+	// show overlay first and delay generation to next frame
 	HandleGenerationOverlayAndQueue(gui);
 
-	// Draw loading overlay on top of everything
+	// draw loading overlay on top of everything
 	DrawGeneratingOverlay();
 
 
@@ -1911,7 +1911,7 @@ while (!glfwWindowShouldClose(window))
 
 	PresentAndPoll(window);
 
-	// Run generation AFTER we have presented the overlay frame
+	// run generation after overlay frame is presented
 	if (gGeneratePending)
 	{
 		gGeneratePending = false;

@@ -22,7 +22,7 @@ float ShadowFactor(vec4 lightSpacePos, vec3 normal)
     vec3 proj = lightSpacePos.xyz / lightSpacePos.w;
     proj = proj * 0.5 + 0.5;
 
-    // outside the shadow map => no shadowing
+    // outside the shadow map -> no shadowing
     if (proj.z > 1.0) return 1.0;
     if (proj.x < 0.0 || proj.x > 1.0 || proj.y < 0.0 || proj.y > 1.0) return 1.0;
 

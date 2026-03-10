@@ -749,7 +749,7 @@ namespace road
                         return true;
                     };
 
-                    // commit a poly as a lot (ONE place)
+                    // commit a poly as a lot 
                     auto CommitLot = [&](std::vector<glm::vec2>&& poly)
                     {
                         float frontage = Length(poly[1] - poly[0]); 
@@ -778,12 +778,12 @@ namespace road
                         if (params.cityRadius > 1e-3f)
                             dist01 = Clamp01(Length(lot.centroid - cityCenter) / params.cityRadius);
 
-                        //near centre => more urban
+                        //near centre -> more urban
                         float scoreDist = 1.0f - dist01;
                         //road type bias
                         float scoreRoad = (lot.roadType == RoadType::Highway) ? 0.15f : 0.0f;
                         
-                        //area bias: smaller lots read “more urban”
+                        //smaller lots read 
                         float area01 = Clamp01((lot.area - 4.0f) / (30.0f - 4.0f));
                         float scoreArea = 1.0f - area01;
 
@@ -801,13 +801,13 @@ namespace road
                         else lot.zone = LotZone::Rural;
 
 
-                        // garden (only suburban, and only if lot is big enough)
+                        // only suburban, and only if lot is big enough
                         lot.hasGarden = false;
                         lot.garden.clear();
 
                         if (lot.zone == LotZone::Rural && lot.area >= params.minLotAreaForGarden)
                         {
-                            // your quad is near0, near1, far1, far0
+                            // quad is near0, near1, far1, far0
                             glm::vec2 near0 = lot.boundary[0];
                             glm::vec2 near1 = lot.boundary[1];
                             glm::vec2 far1  = lot.boundary[2];
@@ -821,7 +821,7 @@ namespace road
                             float gardenDepth = fullDepth * params.gardenBackRatio;
                             if (gardenDepth >= params.minGardenDepth && (fullDepth - gardenDepth) >= 0.5f)
                             {
-                                // split line position (start of garden, measured from near edge)
+                                // start of garden, measured from near edge
                                 float splitFromNear = fullDepth - gardenDepth;
 
                                 glm::vec2 mid0 = near0 + depthDir * splitFromNear;
@@ -860,7 +860,7 @@ namespace road
                         std::vector<glm::vec2> bestPoly;
                         float bestF = 0.0f;
 
-                        // if minimum doesn't fit, give up (advance t by original frontage)
+                        // advance t by original frontage
                         std::vector<glm::vec2> polyMin;
                         if (ComputeBestPoly(minF, polyMin))
                         {
@@ -948,7 +948,7 @@ namespace road
                             }
                             else
                             {
-                                // can't fit a filler at this spot
+                                // can't fit a filler 
                                 break;
                             }
                         }

@@ -31,8 +31,4 @@ namespace road
             RoadType incomingType,
             GenerationPhase phase);
     };
-
-
-
-
 }

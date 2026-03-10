@@ -11,7 +11,7 @@
 #include <filesystem>
 
 
-// common image filter used across texture import dialogs
+// image filter used across texture import
 static const char* kImageFileFilter = "Image files{.png,.jpg,.jpeg,.bmp,.tga},.*";
 
 // draws a standard UI block for a TextureSlot:
@@ -27,13 +27,13 @@ void Gui::DrawTextureSlotUI(
 {
     ImGui::SeparatorText(headerLabel);
 
-    // Imported path label
+    // imported path label
     if (slot.isImported && slot.importedPath[0] != '\0')
         ImGui::TextWrapped("Imported: %s", slot.importedPath);
     else
         ImGui::TextUnformatted("Imported: (none)");
 
-    // Import
+    // import
     if (ImGui::Button((std::string("Import##") + dialogKey).c_str()))
     {
         IGFD::FileDialogConfig config;
@@ -48,7 +48,7 @@ void Gui::DrawTextureSlotUI(
         );
     }
 
-    // Apply
+    // apply
     ImGui::SameLine();
     const bool canApply = slot.isImported && slot.importedPath[0] != '\0';
     if (!canApply) ImGui::BeginDisabled();
@@ -59,7 +59,7 @@ void Gui::DrawTextureSlotUI(
     }
     if (!canApply) ImGui::EndDisabled();
 
-    // Clear
+    // clear
     ImGui::SameLine();
     if (ImGui::Button((std::string("Clear##") + dialogKey).c_str()))
     {
@@ -69,7 +69,7 @@ void Gui::DrawTextureSlotUI(
         slot.importedPath[0] = '\0';
     }
 
-    // Dialog result handling
+    // dialog result handling
     ImGui::SetNextWindowSize(ImVec2(900, 550), ImGuiCond_FirstUseEver);
     if (ImGuiFileDialog::Instance()->Display(dialogKey))
     {
@@ -778,7 +778,7 @@ void Gui::DrawGUI()
         ImGui::SetNextWindowSize(ImVec2(520, 320), ImGuiCond_FirstUseEver);
         if (ImGui::Begin("Materials", &mShowBuildingMaterialsWindow))
         {
-            // Apply Defaults 
+            // apply Defaults 
             if (ImGui::Button("Apply Defaults"))
             {
                 const std::filesystem::path assetsRoot = FindAssetsRoot();
@@ -795,22 +795,22 @@ void Gui::DrawGUI()
                     slot.requestClear = false;
                 };
 
-                // Building walls (Urban/Suburban/Rural)
+                // building walls (Urban/Suburban/Rural)
                 SetSlot(mBuildingTextures[0], texRoot / "Building" / "UrbanWalls.jpg");
                 SetSlot(mBuildingTextures[1], texRoot / "Building" / "SuburbanWalls.jpg");
                 SetSlot(mBuildingTextures[2], texRoot / "Building" / "RuralWalls.jpg");
 
-                // Roofs (Urban/Suburban/Rural)
+                // roofs (Urban/Suburban/Rural)
                 SetSlot(mRoofTextures[0], texRoot / "Roof" / "UrbanRoofs.jpg");
                 SetSlot(mRoofTextures[1], texRoot / "Roof" / "SuburbanRoofs.jpg");
                 SetSlot(mRoofTextures[2], texRoot / "Roof" / "RuralRoofs.jpg");
 
-                // Scene (single textures)
+                // scene (single textures)
                 SetSlot(mRoadTexture,     texRoot / "Road" / "Asphalt.jpg");
                 SetSlot(mSidewalkTexture, texRoot / "Sidewalk" / "SidewalkTex.jpg");
                 SetSlot(mGroundTexture,   texRoot / "Ground" / "GroundTex.jpg");
 
-                // Windows (single texture)
+                // windows (single texture)
                 const std::filesystem::path winP = texRoot / "Window" / "BuildingWindows.png";
                 const std::string winS = ToStringPath(winP);
                 if (!winS.empty())

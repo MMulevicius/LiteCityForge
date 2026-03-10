@@ -65,7 +65,7 @@ namespace road
     }
 
 
-    // Texture building renderer
+    // texture building renderer
     bool BuildingTexturedRenderer::Initialize()
     {
         glGenVertexArrays(1, &mVAO);
@@ -126,7 +126,7 @@ namespace road
         glUniform1i(glGetUniformLocation(shader.ID, "uUseTexture"), useTexture ? 1 : 0);
         glUniform3f(glGetUniformLocation(shader.ID, "uColor"), fallbackColor.r, fallbackColor.g, fallbackColor.b);
 
-        // texture (optional)
+        // texture 
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, useTexture ? textureId : 0);
         glUniform1i(glGetUniformLocation(shader.ID, "uTexture"), 0);
@@ -136,7 +136,7 @@ namespace road
         glBindVertexArray(0);
     }
     
-    // mesh building helpers
+    // mesh building helper methods
 
     static inline glm::vec3 XZToVec3(const glm::vec2& p, float y)
     {
@@ -591,13 +591,15 @@ namespace road
         outRoofTris.clear();
 
   
-        const float inset = 0.06f;          // parapet thickness inward
-        const float epsOut = 0.0015f;       // to avoid z-fighting
+        // parapet thickness inward
+        const float inset = 0.06f;          
+        // to avoid z-fighting
+        const float epsOut = 0.0015f;       
         const float urbanParapetH = 0.10f;
         const float subParapetH   = 0.08f;
         const float ruralParapetH = 0.05f;
 
-        (void)epsOut; // currently unused
+        (void)epsOut; 
 
         for (const auto& lot : lots.lots)
         {
@@ -617,18 +619,18 @@ namespace road
 
             if (lot.zone != road::LotZone::Rural)
             {
-                // Urban/Suburban parapet ring (quads)
+                // urban/Suburban parapet ring (quads)
                 float ph = ruralParapetH;
                 if (lot.zone == road::LotZone::Urban) ph = urbanParapetH;
                 else if (lot.zone == road::LotZone::Suburban) ph = subParapetH;
 
-                // Outer ring points at roof plane
+                // outer ring points at roof plane
                 glm::vec3 o0 = XZToVec3(p0, roofY);
                 glm::vec3 o1 = XZToVec3(p1, roofY);
                 glm::vec3 o2 = XZToVec3(p2, roofY);
                 glm::vec3 o3 = XZToVec3(p3, roofY);
 
-                // Inner ring points inset toward centroid
+                // inner ring points inset toward centroid
                 glm::vec2 ip0 = InsetTowardCentroid(p0, c, inset);
                 glm::vec2 ip1 = InsetTowardCentroid(p1, c, inset);
                 glm::vec2 ip2 = InsetTowardCentroid(p2, c, inset);
@@ -650,13 +652,13 @@ namespace road
                 glm::vec3 it2 = i2 + glm::vec3(0, ph, 0);
                 glm::vec3 it3 = i3 + glm::vec3(0, ph, 0);
 
-                // Outer vertical walls
+                // outer vertical walls
                 AddQuad(outRoofQuads, o0, o1, ot1, ot0);
                 AddQuad(outRoofQuads, o1, o2, ot2, ot1);
                 AddQuad(outRoofQuads, o2, o3, ot3, ot2);
                 AddQuad(outRoofQuads, o3, o0, ot0, ot3);
 
-                // Inner vertical walls (flip winding-ish)
+                // inner vertical walls 
                 AddQuad(outRoofQuads, i1, i0, it0, it1);
                 AddQuad(outRoofQuads, i2, i1, it1, it2);
                 AddQuad(outRoofQuads, i3, i2, it2, it3);
@@ -668,7 +670,7 @@ namespace road
                 AddQuad(outRoofQuads, ot2, ot3, it3, it2);
                 AddQuad(outRoofQuads, ot3, ot0, it0, it3);
 
-                // flat inner fill (slightly above roof plane)
+                // flat inner fill 
                 const float roofEps = 0.0015f;
                 AddQuad(outRoofQuads,
                         i0 + glm::vec3(0, roofEps, 0),
@@ -678,7 +680,7 @@ namespace road
             }
             else
             {
-                // Rural: gable roof (2 slope quads + 2 end tris)
+                // rural: gable roof (2 slope quads + 2 end tris)
                 const float e01 = glm::length(p1 - p0);
                 const float e12 = glm::length(p2 - p1);
                 const bool ridgeParallelTo01 = (e01 >= e12);
@@ -688,7 +690,7 @@ namespace road
 
                 if (ridgeParallelTo01)
                 {
-                    // Ridge parallel to edge 0-1 => ridge endpoints on edges 0-3 and 1-2
+                    // ridge parallel to edge 0-1 -> ridge endpoints on edges 0-3 and 1-2
                     glm::vec2 m03 = (p0 + p3) * 0.5f;
                     glm::vec2 m12 = (p1 + p2) * 0.5f;
 
@@ -705,7 +707,7 @@ namespace road
                 }
                 else
                 {
-                    // Ridge parallel to edge 1-2 => ridge endpoints on edges 0-1 and 3-2
+                    // ridge parallel to edge 1-2 => ridge endpoints on edges 0-1 and 3-2
                     glm::vec2 m01 = (p0 + p1) * 0.5f;
                     glm::vec2 m32 = (p3 + p2) * 0.5f;
 
@@ -716,7 +718,7 @@ namespace road
                     AddQuad(outRoofQuads, XZToVec3(p1, roofY), XZToVec3(p2, roofY), rB, rA);
                     AddQuad(outRoofQuads, XZToVec3(p0, roofY), XZToVec3(p3, roofY), rB, rA);
 
-                    // end caps (gable ends)
+                    // end caps 
                     AddTri(outRoofTris, XZToVec3(p1, roofY), rA, XZToVec3(p0, roofY));
                     AddTri(outRoofTris, XZToVec3(p2, roofY), XZToVec3(p3, roofY), rB);
                 }
@@ -812,7 +814,7 @@ namespace road
                 if (lot.zone == road::LotZone::Rural)
                     floorsForWindows = std::min(floors, 2); // rural: single row only
 
-                // If rural has 2+ floors, force 2 rows
+                // if rural has 2+ floors, force 2 rows
                 if (lot.zone == road::LotZone::Rural && floors >= 2)
                     floorsForWindows = 2;
 

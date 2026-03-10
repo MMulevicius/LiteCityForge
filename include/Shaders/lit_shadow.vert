@@ -16,7 +16,7 @@ void main()
     vec4 world = uModel * vec4(aPos, 1.0);
     vWorldPos = world.xyz;
 
-    // if mesh has no UV, it’ll be 0s (fine)
+    // if mesh has no UV it’ll be 0s
     vUV = aUV; 
     vLightSpacePos = uLightSpace * world;
 

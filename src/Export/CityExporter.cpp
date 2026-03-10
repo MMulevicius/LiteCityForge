@@ -43,7 +43,7 @@ namespace export3d
         if (outDir.empty() || baseName.empty())
             return false;
 
-        // expand "~" to HOME on Linux/macOS.
+     
         auto ExpandTilde = [](const std::string& s) -> std::string
         {
             if (!s.empty() && s[0] == '~')
