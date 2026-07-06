@@ -4,7 +4,12 @@
 
 namespace road
 {
-
+    namespace
+    {
+      constexpr std::size_t gVerticesPerLine{2};
+      constexpr std::size_t gEstimatedPolygonVertexCount{8};
+      constexpr std::size_t gMinNumberOfPoints{3};
+    }
 
     //add a new intersection node to the road graph
     NodeId RoadNetwork::AddNode(const glm::vec2 &p)
@@ -46,11 +51,14 @@ namespace road
     //converts a polygon outline into line vertices for rendering/debug drawing 
     static void AddPolygonsAsLines(std::vector<glm::vec3>& v, const std::vector<glm::vec2>& poly, float y)
     {
-        if (poly.size() < 2) return;
+
+        if (poly.size() < gVerticesPerLine) return;
 
         for (size_t i = 0; i < poly.size(); i++)
         {
             const glm::vec2& p0 = poly[i];
+
+            // +1 to target the real location
             const glm::vec2& p1 = poly[(i + 1) % poly.size()];
 
             AddLine(v,
@@ -63,11 +71,13 @@ namespace road
     void BuildRoadLineVerts(const RoadNetwork& net, std::vector<glm::vec3>& outHighways,
                             std::vector<glm::vec3>& outStreets, float y)
     {
+      
+
         outHighways.clear();
         outStreets.clear();
 
-        outHighways.reserve(net.Segments().size() * 2);
-        outStreets.reserve(net.Segments().size() * 2);
+        outHighways.reserve(net.Segments().size() * gVerticesPerLine);
+        outStreets.reserve(net.Segments().size() * gVerticesPerLine);
 
         for (const auto& seg: net.Segments())
         {
@@ -88,8 +98,9 @@ namespace road
     //builds linne vertices for lot boundary outlines
     void BuildLotLineVerts(const LotCollection& lots, std::vector<glm::vec3>& outLots, float y)
     {
+      
         outLots.clear();
-        outLots.reserve(lots.lots.size() * 8);
+        outLots.reserve(lots.lots.size() * gEstimatedPolygonVertexCount);
 
         for (const auto& lot : lots.lots)
         {
@@ -101,12 +112,12 @@ namespace road
     void BuildGardenLineVerts(const LotCollection& lots, std::vector<glm::vec3>& outGardens, float y)
     {
         outGardens.clear();
-        outGardens.reserve(lots.lots.size() * 8);
+        outGardens.reserve(lots.lots.size() * gEstimatedPolygonVertexCount);
 
         for (const auto& lot : lots.lots)
         {
             if (!lot.hasGarden) continue;
-            if (lot.garden.size() < 3) continue;
+            if (lot.garden.size() < gMinNumberOfPoints) continue;
 
             AddPolygonsAsLines(outGardens, lot.garden, y);
         }
@@ -116,12 +127,12 @@ namespace road
     void BuildFootprintLineVerts(const LotCollection& lots, std::vector<glm::vec3>& outFootprints, float y)
     {
         outFootprints.clear();
-        outFootprints.reserve(lots.lots.size() * 8);
+        outFootprints.reserve(lots.lots.size() * gEstimatedPolygonVertexCount);
 
         for (const auto& lot : lots.lots)
         {
             if (!lot.hasFootPrint) continue;
-            if (lot.footprint.size() < 3) continue;
+            if (lot.footprint.size() < gMinNumberOfPoints) continue;
             AddPolygonsAsLines(outFootprints, lot.footprint, y);
         }
     }
@@ -132,16 +143,23 @@ namespace road
     bool SegIntersect(const glm::vec2& a, const glm::vec2& b, const glm::vec2& c,
                                 const glm::vec2& d, glm::vec2& out)
     {
+
+        constexpr float parallelEpsilon{1e-6f};
+        constexpr float endpointEpsilon{1e-4f};
+
         glm::vec2 r = b - a;
         glm::vec2 s = d - c;
         float denom = r.x * s.y - r.y * s.x;
-        if (std::fabs(denom) < 1e-6f)return false;
+        if (std::fabs(denom) < parallelEpsilon)return false;
+
+
+
 
         glm::vec2 ac = c - a;
         float t = (ac.x * s.y - ac.y * s.x) / denom;
         float u = (ac.x * r.y - ac.y * r.x) / denom;
 
-        if(t > 1e-4f && t < 1.0f - 1e-4f && u > 1e-4f && u < 1.0f - 1e-4f)
+        if(t > endpointEpsilon && t < 1.0f - endpointEpsilon && u > endpointEpsilon && u < 1.0f - endpointEpsilon)
         {
             out = a + t * r;
             return true;

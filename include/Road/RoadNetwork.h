@@ -17,9 +17,12 @@ namespace road
             std::vector<Segment> mSegments;
             NodeId mNextNodeId = 1;
             SegId mNextSegId = 1;
+              
 
 
         public:
+
+
             //add a new intersection
             NodeId AddNode(const glm::vec2 &p);
             //add a road segment between two nodes
