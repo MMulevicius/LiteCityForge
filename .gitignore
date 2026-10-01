@@ -1,7 +1,22 @@
-/out
-bin/
-build/
-/.vs
-.idea/
-CMakeSettings.json
-Makefile
+# Build output
+/build/
+/out/
+/bin/
+/cmake-build-*/
+
+# Local IDE settings
+/.vs/
+/.idea/
+/CMakeSettings.json
+/CMakeUserPresets.json
+
+# Local ImGui layout
+imgui.ini
+
+# Generated city exports
+/assets/models/city.obj
+/assets/models/city.mtl
+
+# Operating system files
+.DS_Store
+Thumbs.db
