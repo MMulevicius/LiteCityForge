@@ -44,6 +44,10 @@ list(APPEND MY_SOURCES
 
 add_executable("${CMAKE_PROJECT_NAME}" ${MY_SOURCES}) 
 
+target_compile_definitions(${PROJECT_NAME} PRIVATE
+    PROJECT_ROOT_PATH="${CMAKE_CURRENT_SOURCE_DIR}/"
+)
+
 set_property(TARGET "${CMAKE_PROJECT_NAME}" PROPERTY CXX_STANDARD 17)
 
 

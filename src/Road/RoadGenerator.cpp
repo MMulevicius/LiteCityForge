@@ -9,6 +9,21 @@
 
 namespace road 
 {
+
+    namespace
+    {
+      constexpr float Pi {3.1415926535f};
+      constexpr float TwoPi {2.0f * Pi};
+      constexpr float DegreesInCircle = 360.0f;
+      constexpr float DegreesInHalfCircle = 180.0f;
+
+      constexpr float GeometryEpsilon = 1e-8f;
+      constexpr float HalfChance = 0.5f;
+      constexpr float MaxSquaredDistance = 1e30f;
+      constexpr int MinConnectionsForAngleCheck = 2;
+
+    }
+
     //compares two segments and decides on the priority (used in priority_queue)
     struct CandGreater
     {
@@ -24,7 +39,7 @@ namespace road
     }
 
     //converts degrees to radians
-    static float DegToRad(float deg) { return deg * 3.1415926535f / 180.0f; }
+    //static float DegToRad(float deg) { return deg * Pi / DegreesInHalfCircle; }
 
     //geometry helper 
     static float Cross2(const glm::vec2& a, const glm::vec2& b) { return a.x * b.y - a.y * b.x;}
@@ -34,7 +49,7 @@ namespace road
     {
         glm::vec2 ab = b - a;
         float ab2 = glm::dot(ab, ab);
-        if (ab2 <= 1e-8f) return glm::length(p - a);
+        if (ab2 <= GeometryEpsilon) return glm::length(p - a);
 
         float t = glm::dot(p - a, ab) /ab2;
         t = std::max(0.0f, std::min(1.0f, t));
@@ -117,8 +132,8 @@ namespace road
                 pq.push(c);
             };
 
-            NodeId start = (dist01(rng) < 0.5f) ? seg.a : seg.b;
-            if (dist01(rng) < 0.5f) pushStreet(start, leftDir);
+            NodeId start = (dist01(rng) < HalfChance) ? seg.a : seg.b;
+            if (dist01(rng) < HalfChance) pushStreet(start, leftDir);
             else                    pushStreet(start, rightDir);
         }
     }
@@ -153,8 +168,8 @@ namespace road
 
         for (int i = 0; i < params.initialRays; i++)
         {
-            float baseDeg = (360.0f * (float)i) / (float)params.initialRays;
-            float ang = DegToRad(baseDeg + jitter(rng));
+            float baseDeg = (DegreesInCircle * (float)i) / (float)params.initialRays;
+            float ang = glm::radians(baseDeg + jitter(rng));
 
             Candidate c;
             c.start = center;
@@ -183,7 +198,7 @@ namespace road
              if (seg.a == cand.start || seg.b == cand. start)
                 connected++;
             
-        if (connected < 2)
+        if (connected < MinConnectionsForAngleCheck)
             return true;
         
         const float minAngleRad = glm::radians(params.minAngleDeg);

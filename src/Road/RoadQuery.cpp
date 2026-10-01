@@ -15,18 +15,18 @@ namespace road
     //inserts a node into the spatial hash grid
     void RoadQuery::InsertNode(NodeId nodeId)
     {
-        const glm::vec2 pos = mNet.Nodes()[nodeId - 1].pos;
-        CellKey k = CellKeyFromPos(pos);
+        const glm::vec2 pos {mNet.Nodes()[nodeId - 1].pos};
+        CellKey k {CellKeyFromPos(pos)};
         mNodeCells[k].push_back(nodeId);
     }
 
     //inserts a segment into all grid cells overlapping its bounding box
     void RoadQuery::InsertSegment(SegId segId)
     {
-        const auto& seg = mNet.Segments()[segId - 1];
+        const auto& seg {mNet.Segments()[segId - 1]};
         
-        const glm::vec2 a = mNet.Nodes()[seg.a - 1].pos;
-        const glm::vec2 b = mNet.Nodes()[seg.b - 1].pos;
+        const glm::vec2 a {mNet.Nodes()[seg.a - 1].pos};
+        const glm::vec2 b {mNet.Nodes()[seg.b - 1].pos};
 
         glm::vec2 mn, mx;
         AABBForSegment(a, b, mn, mx);
@@ -49,7 +49,7 @@ namespace road
         std::vector<NodeId> candidates;
         for (const auto& k : neigh)
         {
-            auto it = mNodeCells.find(k);
+            auto it {mNodeCells.find(k)};
             if (it == mNodeCells.end()) continue;
             candidates.insert(candidates.end(), it->second.begin(), it->second.end());
         }
@@ -59,10 +59,10 @@ namespace road
         candidates.erase(std::unique(candidates.begin(), candidates.end()), candidates.end());
         
         std::vector<NodeId> result;
-        const float r2 = radius * radius;
+        const float r2 {radius * radius};
         for (NodeId id: candidates)
         {
-            const glm::vec2 np = mNet.Nodes()[id - 1].pos;
+            const glm::vec2 np {mNet.Nodes()[id - 1].pos};
             if (glm::dot(np - pos, np - pos) <= r2)
                 result.push_back(id);
         }
@@ -74,17 +74,17 @@ namespace road
     bool RoadQuery::FindNearestNode(const glm::vec2& pos, float snapRadius, NodeId ignoreNodeId,
                                         NodeId& outNodeId, float& outDist) const
     {
-        auto near = QueryNearbyNodes(pos, snapRadius);
+        auto near {QueryNearbyNodes(pos, snapRadius)};
 
-        bool found = false;
-        float best = 1e30f;
-        NodeId bestId = 0;
+        bool found {false};
+        float best {1e30f};
+        NodeId bestId {0};
 
         for (NodeId id : near)
         {
             if (id == ignoreNodeId) continue;
-            const glm::vec2 np = mNet.Nodes()[id - 1].pos;
-            float d = glm::length(np - pos);
+            const glm::vec2 np {mNet.Nodes()[id - 1].pos};
+            float d {glm::length(np - pos)};
             if (d < best)
             {
                 best = d;
