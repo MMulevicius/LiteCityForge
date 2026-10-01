@@ -40,9 +40,15 @@ list(APPEND APP_SOURCES
 
 add_executable(${PROJECT_NAME} ${APP_SOURCES})
 
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_CURRENT_SOURCE_DIR}/assets"
+        "$<TARGET_FILE_DIR:${PROJECT_NAME}>/assets"
+    COMMENT "Copying runtime assets"
+)
+
 target_compile_definitions(${PROJECT_NAME} PRIVATE
     GLFW_INCLUDE_NONE=1
-    PROJECT_ROOT_PATH="${CMAKE_CURRENT_SOURCE_DIR}/"
 )
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE
