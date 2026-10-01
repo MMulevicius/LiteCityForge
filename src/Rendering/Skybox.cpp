@@ -2,6 +2,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <iostream>
 #include <stb_image/stb_image.h>
+#include "Core/AssetPaths.h"
 
 // unit cube vertices used to render the skybox (36 verts, 12 triangles)
 static const float SKYBOX_VERTS[] = {
@@ -57,8 +58,8 @@ bool Skybox::Initialize(const std::string &directory)
 
     // skybox shader uses a cubemap sampler
     mShader = new Shader(
-        PROJECT_ROOT_PATH "include/Shaders/skybox.vert",
-        PROJECT_ROOT_PATH "include/Shaders/skybox.frag");
+        assets::Path("shaders/skybox.vert"),
+        assets::Path("shaders/skybox.frag"));
 
     // set sampler once
     mShader->use();

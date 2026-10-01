@@ -21,6 +21,7 @@
 // main project dependencies
 #include "Core/Primitives.h"
 #include "Core/Camera.h"
+#include "Core/AssetPaths.h"
 #include "Road/RoadGenerator.h"
 #include "Road/RoadParams.h"
 #include "Rendering/LineRenderer.h"
@@ -1733,28 +1734,28 @@ int main(void)
 
 	// shader paths
 	Shader primShader(
-		PROJECT_ROOT_PATH "include/Shaders/basic.vert",
-		PROJECT_ROOT_PATH "include/Shaders/basic.frag");
+		assets::Path("shaders/basic.vert"),
+		assets::Path("shaders/basic.frag"));
 
 	Shader lineShader(
-		PROJECT_ROOT_PATH "include/Shaders/line.vert",
-		PROJECT_ROOT_PATH "include/Shaders/line.frag");
+		assets::Path("shaders/line.vert"),
+		assets::Path("shaders/line.frag"));
 
 	Shader buildingTexShader(
-		PROJECT_ROOT_PATH "include/Shaders/building_tex.vert",
-		PROJECT_ROOT_PATH "include/Shaders/building_tex.frag");
+		assets::Path("shaders/building_tex.vert"),
+		assets::Path("shaders/building_tex.frag"));
 
 	Shader shadowDepthShader(
-		PROJECT_ROOT_PATH "include/Shaders/shadow_depth.vert",
-		PROJECT_ROOT_PATH "include/Shaders/shadow_depth.frag");
+		assets::Path("shaders/shadow_depth.vert"),
+		assets::Path("shaders/shadow_depth.frag"));
 
 	Shader litShader(
-		PROJECT_ROOT_PATH "include/Shaders/lit_shadow.vert",
-		PROJECT_ROOT_PATH "include/Shaders/lit_shadow.frag");
+		assets::Path("shaders/lit_shadow.vert"),
+		assets::Path("shaders/lit_shadow.frag"));
 
 	// skybox initilization
 	if (!sInit.skybox.Initialize(
-			PROJECT_ROOT_PATH "assets/textures/SkyBox/Standard-Cube-Map"))
+			assets::Path("textures/SkyBox/Standard-Cube-Map").string()))
 	{
 		std::cout << "Skybox init failed. \n";
 	}
