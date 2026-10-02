@@ -125,9 +125,19 @@ bool Gui::Initialize_GUI(GLFWwindow *window, const char *glslVersion)
 
     // connects ImGui to GLFW and sets up OpenGL rendering backend
     if (!ImGui_ImplGlfw_InitForOpenGL(mWindow, true))
+    {
+        ImGui::DestroyContext();
+        mWindow = nullptr;
         return false;
+    }
+
     if (!ImGui_ImplOpenGL3_Init(glslVersion))
+    {
+        ImGui_ImplGlfw_Shutdown();
+        ImGui::DestroyContext();
+        mWindow = nullptr;
         return false;
+    }
 
     // making sure that the GUI is ready
     mInitialized = true;
@@ -440,7 +450,7 @@ void Gui::DrawGUI()
     }
     // settings button
     ImGui::SameLine();
-    if (ImGui::Button(u8"⚙ Settings"))
+    if (ImGui::Button("Settings"))
     {
         mShowSettingsWindow = !mShowSettingsWindow;
     }

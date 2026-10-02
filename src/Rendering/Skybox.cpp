@@ -61,6 +61,13 @@ bool Skybox::Initialize(const std::string &directory)
         assets::Path("shaders/skybox.vert"),
         assets::Path("shaders/skybox.frag"));
 
+    if (!mShader || mShader->ID == 0)
+    {
+        std::cout << "[Skybox] Shader creation failed.\n";
+        Shutdown();
+        return false;
+    }
+
     // set sampler once
     mShader->use();
     glUniform1i(glGetUniformLocation(mShader->ID, "skybox"), 0);
@@ -81,8 +88,12 @@ void Skybox::Shutdown()
 
     mVBO = mVAO = mCubemapTex = 0;
 
-    delete mShader;
-    mShader = nullptr;
+    if (mShader)
+    {
+        mShader->Shutdown();
+        delete mShader;
+        mShader = nullptr;
+    }
 }
 
 // loads 6 images and uploads them into a GL_TEXTURE_CUBE_MAP texture

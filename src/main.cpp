@@ -1709,6 +1709,7 @@ int main(void)
 
 	// wires mouse-wheel scroll events
 	glfwSetScrollCallback(window, ScrollCallback);
+
 	// makes OpenGl context current
 	glfwMakeContextCurrent(window);
 
@@ -1723,11 +1724,10 @@ int main(void)
 	Gui gui;
 	if (!gui.Initialize_GUI(window, "#version 330"))
 	{
+		glfwDestroyWindow(window);
+		glfwTerminate();
 		return -1;
 	}
-
-	// primitives initialization
-	sInit.primitives.Initialize_Prim();
 
 	// camera initialization
 	sInit.camera.Set3DEnabled(false, glm::vec2(0.0f, 0.0f), gui.GetCityRadius());
@@ -1753,19 +1753,99 @@ int main(void)
 		assets::Path("shaders/lit_shadow.vert"),
 		assets::Path("shaders/lit_shadow.frag"));
 
+	// all shutdowns
+	auto ShutdownResources = [&]()
+	{
+		sInit.skybox.Shutdown();
+		sRoads.highwayLines.Shutdown_Road();
+		sRoads.streetLines.Shutdown_Road();
+		sInit.primitives.Shutdown_Prim();
+		sLots.lotLines.Shutdown_Road();
+		sRoads.sidewalkLines.Shutdown_Road();
+		sLots.gardenLines.Shutdown_Road();
+		sLots.footprintLines.Shutdown_Road();
+		sBuilding.buildingMesh.Shutdown();
+
+		sBuilding.roofMesh.Shutdown();
+		sBuilding.windowMesh.Shutdown();
+
+		sRoads.roadMeshHighway.Shutdown();
+		sRoads.roadMeshStreet.Shutdown();
+		sRoads.sidewalkMesh.Shutdown();
+
+		sTex.windowMeshTex.Shutdown();
+		sTex.roadMeshHighwayTex.Shutdown();
+		sTex.roadMeshStreetTex.Shutdown();
+		sTex.sidewalkMeshTex.Shutdown();
+		sTex.groundMeshTex.Shutdown();
+
+		sTex.roofMeshUrban.Shutdown();
+		sTex.roofMeshSuburban.Shutdown();
+		sTex.roofMeshRural.Shutdown();
+
+		sTex.buildingMeshUrban.Shutdown();
+		sTex.buildingMeshSuburban.Shutdown();
+		sTex.buildingMeshRural.Shutdown();
+
+		SafeDeleteTexture(sTex.windowTex);
+		SafeDeleteTexture(sTex.roadTex);
+		SafeDeleteTexture(sTex.sidewalkTex);
+		SafeDeleteTexture(sTex.groundTex);
+
+		SafeDeleteTexture(sTex.urbanTex);
+		SafeDeleteTexture(sTex.suburbanTex);
+		SafeDeleteTexture(sTex.ruralTex);
+
+		SafeDeleteTexture(sTex.roofUrbanTex);
+		SafeDeleteTexture(sTex.roofSuburbanTex);
+		SafeDeleteTexture(sTex.roofRuralTex);
+
+		sInit.shadowMap.Shutdown();
+
+		primShader.Shutdown();
+		lineShader.Shutdown();
+		buildingTexShader.Shutdown();
+		shadowDepthShader.Shutdown();
+		litShader.Shutdown();
+		gui.ShutdownGUI();
+	};
+
+	// initialization block of all
+	auto Fail = [&](const char *what)
+	{
+		std::cout << "Init failed: " << what << "\n";
+		ShutdownResources();
+		glfwDestroyWindow(window);
+		glfwTerminate();
+		return -1;
+	};
+
+	if (primShader.ID == 0)
+		return Fail("primShader");
+
+	if (lineShader.ID == 0)
+		return Fail("lineShader");
+
+	if (buildingTexShader.ID == 0)
+		return Fail("buildingTexShader");
+
+	if (shadowDepthShader.ID == 0)
+		return Fail("shadowDepthShader");
+
+	if (litShader.ID == 0)
+		return Fail("litShader");
+
 	// skybox initilization
 	if (!sInit.skybox.Initialize(
 			assets::Path("textures/SkyBox/Standard-Cube-Map").string()))
 	{
-		std::cout << "Skybox init failed. \n";
+		return Fail("skybox");
 	}
 
-	// initialization block of all
-	auto Fail = [](const char *what)
+	if (!sInit.primitives.Initialize_Prim())
 	{
-		std::cout << "Init failed: " << what << "\n";
-		return -1;
-	};
+		return Fail("primitives");
+	}
 
 	// debug line renderers
 	if (!sRoads.highwayLines.Initialize_Road())
@@ -1925,7 +2005,9 @@ int main(void)
 		if (gui.ConsumeGuiRecreateRequest())
 		{
 			gui.ShutdownGUI();
-			gui.Initialize_GUI(window, "#version 330");
+
+			if (!gui.Initialize_GUI(window, "#version 330"))
+				return Fail("GUI reinitialization");
 		}
 
 		PresentAndPoll(window);
@@ -1949,17 +2031,8 @@ int main(void)
 			gShowGeneratingOverlay = false;
 		}
 	}
-	// all shutdowns
-	sInit.skybox.Shutdown();
-	sRoads.highwayLines.Shutdown_Road();
-	sRoads.streetLines.Shutdown_Road();
-	sInit.primitives.Shutdown_Prim();
-	sLots.lotLines.Shutdown_Road();
-	sRoads.sidewalkLines.Shutdown_Road();
-	sLots.gardenLines.Shutdown_Road();
-	sLots.footprintLines.Shutdown_Road();
-	sBuilding.buildingMesh.Shutdown();
-	gui.ShutdownGUI();
+
+	ShutdownResources();
 	glfwDestroyWindow(window);
 	glfwTerminate();
 
