@@ -1,5 +1,5 @@
 #include "Rendering/CityRenderer.h"
-
+#include <glm/gtc/type_ptr.hpp>
 #include <glad/glad.h>
 
 namespace rendering
@@ -332,6 +332,75 @@ namespace rendering
         glDisable(GL_POLYGON_OFFSET_FILL);
 
         shadowMap.EndDepthPass(frame.w, frame.h);
+    }
+
+    // uploads lighting and shadow-map uniforms for the main lit shader
+    void SetupLightingAndShadowUniforms(
+        Shader &litShader,
+        ShadowMap &shadowMap,
+        const glm::mat4 &lightSpace,
+        const glm::vec3 &lightDir,
+        bool is3D)
+    {
+        litShader.use();
+
+        glUniformMatrix4fv(
+            glGetUniformLocation(litShader.ID, "uLightSpace"),
+            1, GL_FALSE, glm::value_ptr(lightSpace));
+
+        glUniform3f(
+            glGetUniformLocation(litShader.ID, "uLightDir"),
+            lightDir.x, lightDir.y, lightDir.z);
+
+        glUniform1i(
+            glGetUniformLocation(litShader.ID, "uEnableShadows"),
+            is3D ? 1 : 0);
+
+        // bind shadow map on texture unit 1
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, shadowMap.GetDepthTexture());
+        glUniform1i(glGetUniformLocation(litShader.ID, "uShadowMap"), 1);
+    }
+
+    // computes the directional light vector and light-space matrix for shadow mapping
+    void ComputeLightSpace(
+        const CityContext &city,
+        glm::vec3 &outLightDir,
+        glm::mat4 &outLightSpace)
+    {
+        outLightDir = glm::normalize(glm::vec3(-0.4f, -1.0f, -0.2f)); // sun direction
+
+        const float r = city.cityR;
+        const glm::vec2 c = city.centerXZ;
+        const glm::vec3 center3(c.x, 0.0f, c.y);
+
+        // light “camera”
+        const glm::vec3 lightPos = center3 - outLightDir * (r * 2.5f);
+
+        // ortho box covering the city
+        const float ortho = r * 1.8f;
+        const glm::mat4 lightView = glm::lookAt(lightPos, center3, glm::vec3(0, 1, 0));
+        const glm::mat4 lightProj = glm::ortho(-ortho, ortho, -ortho, ortho, 0.1f, r * 6.0f);
+
+        outLightSpace = lightProj * lightView;
+    }
+
+    // draws the skybox as the background environment
+    void DrawSkyboxPass(
+        Skybox &skybox,
+        Camera &camera,
+        float aspect,
+        bool is3D)
+    {
+
+        glDisable(GL_CULL_FACE);
+
+        if (is3D)
+        {
+            skybox.Draw(camera, aspect, is3D);
+        }
+        glEnable(GL_CULL_FACE);
+        glCullFace(GL_BACK);
     }
 
 }

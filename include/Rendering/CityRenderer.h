@@ -8,6 +8,9 @@
 #include "Rendering/RenderContexts.h"
 #include "Core/Primitives.h"
 #include "Rendering/ShadowMap.h"
+#include "Rendering/Skybox.h"
+#include "Core/Camera.h"
+#include "Textures/TextureContext.h"
 
 namespace rendering
 {
@@ -45,4 +48,22 @@ namespace rendering
         RoadContext &roads,
         BuildingContext &buildings,
         TextureContext &textures);
+
+    void SetupLightingAndShadowUniforms(
+        Shader &litShader,
+        ShadowMap &shadowMap,
+        const glm::mat4 &lightSpace,
+        const glm::vec3 &lightDir,
+        bool is3D);
+
+    void ComputeLightSpace(
+        const CityContext &city,
+        glm::vec3 &outLightDir,
+        glm::mat4 &outLightSpace);
+
+    void DrawSkyboxPass(
+        Skybox &skybox,
+        Camera &camera,
+        float aspect,
+        bool is3D);
 }

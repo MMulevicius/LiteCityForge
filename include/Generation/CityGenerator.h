@@ -2,6 +2,7 @@
 
 #include "Generation/CityGenerationState.h"
 #include "GUI/Gui.h"
+#include "Textures/TextureContext.h"
 
 namespace generation
 {
