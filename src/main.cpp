@@ -15,7 +15,6 @@
 #include "backends/imgui_impl_glfw.h"
 #include "backends/imgui_impl_opengl3.h"
 #include "imguiThemes.h"
-#include <chrono>
 #include "Rendering/ShadowMap.h"
 
 // main project dependencies
@@ -28,157 +27,21 @@
 #include "Lots/LotSubdivision.h"
 #include "Lots/LotParams.h"
 #include "Lots/LotTypes.h"
-#include "Road/SideWalkGenerator.h"
 #include "Rendering/BuildingRenderer.h"
-#include "Road/RoadSurfaceGenerator.h"
 #include "Export/CityExporter.h"
 #include "GUI/Gui.h"
 #include <Rendering/Shader.h>
 #include "Rendering/Skybox.h"
+#include "Generation/CityGenerator.h"
+#include "Rendering/CityRenderer.h"
+#include "Rendering/RenderContexts.h"
 
 // global Y axis variable for zooming in/out control.
 static float gScrollY = 0.0f;
-double gLastGenerationMs = 0.0;
 
 // controls the delayed city-generation overlay workflow
 static bool gShowGeneratingOverlay = false;
 static bool gGeneratePending = false;
-
-// context structs used to group related runtime state
-struct CityContext
-{
-	float cityR = 0.0f;
-	glm::vec2 centerXZ = glm::vec2(0.0f, 0.0f);
-};
-
-struct FrameContext
-{
-	float deltaTime = 0.0f;
-	int w = 1;
-	int h = 1;
-	float aspect = 1.0f;
-	glm::mat4 viewProjection = glm::mat4(1.0f);
-};
-
-struct GroundContext
-{
-	float margin = 20.0f;
-	float halfW = 0.0f;
-	float halfH = 0.0f;
-};
-
-struct BuildingContext
-{
-	// building mesh variable
-	road::BuildingRenderer buildingMesh;
-	road::BuildingRenderer roofMesh;
-	road::BuildingRenderer windowMesh;
-
-	// building detail tris
-	std::vector<glm::vec3> buildingTriVerts;
-	std::vector<glm::vec3> buildingRoofTriVerts;
-	std::vector<glm::vec3> buildingWindowTriVerts;
-
-	// building detail quads
-	std::vector<glm::vec3> buildingQuadVerts;
-	std::vector<glm::vec3> buildingRoofQuadVerts;
-	std::vector<glm::vec3> buildingWindowQuadVerts;
-};
-
-struct RoadContext
-{
-	// road variables
-	bool showRoads = false;
-	road::RoadGenerator roadGen;
-	road::RoadParams roadParams;
-	road::RoadNetwork roadNet;
-	road::LineRenderer highwayLines;
-	road::LineRenderer streetLines;
-	std::vector<glm::vec3> roadLineVerts;
-
-	// roads and sidewalks mesh variables
-	road::BuildingRenderer roadMeshHighway;
-	road::BuildingRenderer roadMeshStreet;
-	road::BuildingRenderer sidewalkMesh;
-
-	std::vector<glm::vec3> roadHighwayTris;
-	std::vector<glm::vec3> roadStreetTris;
-	std::vector<glm::vec3> sidewalkTris;
-
-	// sidewalk variables
-	road::LineRenderer sidewalkLines;
-	std::vector<glm::vec3> sidewalkLineVerts;
-};
-
-struct LotContext
-{
-
-	// lot variables
-	road::LotSubdivision lotGen;
-	road::LotCollection lots;
-	road::LineRenderer lotLines;
-	std::vector<glm::vec3> lotLineVerts;
-
-	// garden variables
-	road::LineRenderer gardenLines;
-	std::vector<glm::vec3> gardenLineVerts;
-
-	// building footprint variables
-	road::LineRenderer footprintLines;
-	std::vector<glm::vec3> footprintLineVerts;
-};
-
-struct TextureContext
-{
-
-	// building window texture variables
-	road::BuildingTexturedRenderer windowMeshTex;
-
-	// roof texture variables
-	road::BuildingTexturedRenderer roadMeshHighwayTex;
-	road::BuildingTexturedRenderer roadMeshStreetTex;
-	road::BuildingTexturedRenderer sidewalkMeshTex;
-	road::BuildingTexturedRenderer groundMeshTex;
-
-	std::vector<road::BuildingVertexPT> roofUrbanPT;
-	std::vector<road::BuildingVertexPT> roofSuburbanPT;
-	std::vector<road::BuildingVertexPT> roofRuralPT;
-	std::vector<road::BuildingVertexPT> roadHighwayPT;
-	std::vector<road::BuildingVertexPT> roadStreetPT;
-	std::vector<road::BuildingVertexPT> sidewalkPT;
-	std::vector<road::BuildingVertexPT> groundPT;
-
-	// roof meshes by type
-	road::BuildingTexturedRenderer roofMeshUrban;
-	road::BuildingTexturedRenderer roofMeshSuburban;
-	road::BuildingTexturedRenderer roofMeshRural;
-
-	// building texture variables
-	road::BuildingTexturedRenderer buildingMeshUrban;
-	road::BuildingTexturedRenderer buildingMeshSuburban;
-	road::BuildingTexturedRenderer buildingMeshRural;
-
-	std::vector<road::BuildingVertexPT> buildingUrbanPT;
-	std::vector<road::BuildingVertexPT> buildingSuburbanPT;
-	std::vector<road::BuildingVertexPT> buildingRuralPT;
-
-	// window texture
-	GLuint windowTex = 0;
-	GLuint roadTex = 0;
-	GLuint sidewalkTex = 0;
-	GLuint groundTex = 0;
-
-	bool useWindowTex = false;
-	bool useRoadTex = false;
-	bool useSidewalkTex = false;
-	bool useGroundTex = false;
-
-	GLuint urbanTex = 0, suburbanTex = 0, ruralTex = 0;
-	bool useUrban = false, useSuburban = false, useRural = false;
-
-	GLuint roofUrbanTex = 0, roofSuburbanTex = 0, roofRuralTex = 0;
-	bool useRoofUrban = false, useRoofSuburban = false, useRoofRural = false;
-};
 
 struct InitializationContext
 {
@@ -219,370 +82,6 @@ namespace
 		ImGui::Separator();
 		ImGui::TextUnformatted("Please wait.");
 		ImGui::End();
-	}
-
-	// prints the current road-generation parameters for debugging
-	void PrintRoadParams(const road::RoadParams &rp)
-	{
-		std::cout
-			<< "[GUI] cityRadius=" << rp.cityRadius
-			<< " maxIterations=" << rp.maxIterations
-			<< " maxStreets=" << rp.maxStreetSegments
-			<< " maxHighways=" << rp.maxHighwaySegments
-			<< "\n";
-	}
-
-	// converts plain triangle vertices into textured vertices using world-space XZ UV mapping
-	void ConvertTriVertsToPT_WorldXZ(const std::vector<glm::vec3> &in,
-									 std::vector<road::BuildingVertexPT> &out,
-									 float uvMetersPerTile)
-	{
-		out.clear();
-		out.reserve(in.size());
-
-		if (uvMetersPerTile <= 0.001f)
-			uvMetersPerTile = 2.0f;
-		const float s = 1.0f / uvMetersPerTile;
-
-		for (const auto &p : in)
-		{
-			road::BuildingVertexPT v;
-			v.pos = p;
-			v.uv = glm::vec2(p.x, p.z) * s;
-			out.push_back(v);
-		}
-	}
-
-	// builds a textured ground quad as two triangles
-	void BuildGroundPT(std::vector<road::BuildingVertexPT> &out,
-					   const glm::vec2 &centerXZ,
-					   float halfW,
-					   float halfH,
-					   float y,
-					   float uvMetersPerTile)
-	{
-		out.clear();
-		if (uvMetersPerTile <= 0.001f)
-			uvMetersPerTile = 4.0f;
-		const float s = 1.0f / uvMetersPerTile;
-
-		glm::vec3 a(centerXZ.x - halfW, y, centerXZ.y - halfH);
-		glm::vec3 b(centerXZ.x + halfW, y, centerXZ.y - halfH);
-		glm::vec3 c(centerXZ.x + halfW, y, centerXZ.y + halfH);
-		glm::vec3 d(centerXZ.x - halfW, y, centerXZ.y + halfH);
-
-		auto UV = [&](const glm::vec3 &p)
-		{ return glm::vec2(p.x, p.z) * s; };
-
-		// two tris: a-b-c, a-c-d
-		out.push_back({a, UV(a)});
-		out.push_back({b, UV(b)});
-		out.push_back({c, UV(c)});
-
-		out.push_back({a, UV(a)});
-		out.push_back({c, UV(c)});
-		out.push_back({d, UV(d)});
-	}
-
-	// build road and sidewalk surface meshes then uploads them to GPU renderers
-	void BuildAndUploadRoadAndSidewalkMeshes(
-		const road::RoadNetwork &roadNet,
-		const road::RoadParams &roadParams,
-		std::vector<glm::vec3> &roadHighwayTris,
-		std::vector<glm::vec3> &roadStreetTris,
-		std::vector<glm::vec3> &sidewalkTris,
-		road::BuildingRenderer &roadMeshHighway,
-		road::BuildingRenderer &roadMeshStreet,
-		road::BuildingRenderer &sidewalkMesh)
-	{
-		// build 3D road + sidewalk slabs
-		const float roadBaseY = 0.02f;
-		const float roadH = 0.02f;
-
-		// sidewalk sits above road
-		const float sidewalkBaseY = roadBaseY + roadH;
-		const float sidewalkH = 0.08f;
-
-		// trim
-		const float trimExtra = 0.0f;
-
-		road::BuildRoadSurfaceTriVerts(
-			roadNet, roadParams,
-			roadHighwayTris, roadStreetTris,
-			roadBaseY, roadH);
-
-		road::BuildSidewalkSurfaceTriVerts(
-			roadNet, roadParams,
-			sidewalkTris,
-			sidewalkBaseY, sidewalkH,
-			trimExtra, false);
-
-		roadMeshHighway.Upload(roadHighwayTris);
-		roadMeshStreet.Upload(roadStreetTris);
-		sidewalkMesh.Upload(sidewalkTris);
-
-		std::cout << "Road tris => highway: " << roadHighwayTris.size()
-				  << " street: " << roadStreetTris.size()
-				  << " sidewalks: " << sidewalkTris.size()
-				  << "\n";
-	}
-
-	// builds and uploads debug line geometry for highways and streets
-	void BuildAndUploadRoadLineVerts(const road::RoadNetwork &roadNet, road::LineRenderer &highwayLines,
-									 road::LineRenderer &streetLines)
-	{
-		std::vector<glm::vec3> highwayVerts;
-		std::vector<glm::vec3> streetVerts;
-
-		highwayVerts.reserve(roadNet.Segments().size() * 2);
-		streetVerts.reserve(roadNet.Segments().size() * 2);
-
-		for (const auto &seg : roadNet.Segments())
-		{
-			const auto &A = roadNet.Nodes().at(seg.a - 1).pos;
-			const auto &B = roadNet.Nodes().at(seg.b - 1).pos;
-
-			glm::vec3 a3(A.x, 0.05f, A.y);
-			glm::vec3 b3(B.x, 0.05f, B.y);
-
-			if (seg.type == road::RoadType::Highway)
-			{
-				highwayVerts.push_back(a3);
-				highwayVerts.push_back(b3);
-			}
-			else
-			{
-				streetVerts.push_back(a3);
-				streetVerts.push_back(b3);
-			}
-		}
-		highwayLines.Upload(highwayVerts);
-		streetLines.Upload(streetVerts);
-	}
-	// derives lot generation parameters from the current GUI and road settings
-	road::LotParams MakeLotParamsFromRoadParams(const Gui &gui, const road::RoadParams &roadParams)
-	{
-		road::LotParams lotParams = gui.GetLotParams();
-		lotParams.seed = roadParams.seed;
-		lotParams.cityRadius = roadParams.cityRadius;
-
-		lotParams.streetHalfWidth = roadParams.streetHalfWidth;
-		lotParams.highwayHalfWidth = roadParams.highwayHalfWidth;
-
-		lotParams.sidewalkWidth = roadParams.sidewalkWidth;
-		lotParams.sidewalkGap = roadParams.sidewalkGap;
-
-		return lotParams;
-	}
-	// prints lot zoning and garden-generation statistics for debugging
-	void PrintGardenPipelineStats(const road::LotCollection lots, const road::LotParams &lotParams)
-	{
-
-		int nUrban = 0, nSub = 0, nRural = 0;
-		int passZone = 0, passArea = 0, passDepth = 0, passAll = 0;
-
-		for (const auto &l : lots.lots)
-		{
-			if (l.zone == road::LotZone::Urban)
-				nUrban++;
-			else if (l.zone == road::LotZone::Suburban)
-				nSub++;
-			else
-				nRural++;
-
-			// zone
-			if (l.zone != road::LotZone::Suburban)
-				continue;
-			passZone++;
-
-			// area
-			if (l.area < lotParams.minLotAreaForGarden)
-				continue;
-			passArea++;
-
-			// depth feasibility (recompute from boundary)
-			if (l.boundary.size() < 4)
-				continue;
-			float fullDepth = glm::length(l.boundary[3] - l.boundary[0]);
-			float gardenDepth = fullDepth * lotParams.gardenBackRatio;
-
-			if (gardenDepth < lotParams.minGardenDepth)
-				continue;
-			if ((fullDepth - gardenDepth) < 0.5f)
-				continue;
-			passDepth++;
-
-			// actual result
-			if (l.hasGarden)
-				passAll++;
-		}
-
-		std::cout << "Zones => Urban: " << nUrban << " Suburban: " << nSub << " Rural: " << nRural << "\n";
-		std::cout << "Garden pipeline => passZone: " << passZone
-				  << " passArea: " << passArea
-				  << " passDepth: " << passDepth
-				  << " hasGarden: " << passAll << "\n";
-
-		float minA = 1e9f, maxA = 0.0f;
-		for (const auto &l : lots.lots)
-		{
-			minA = std::min(minA, l.area);
-			maxA = std::max(maxA, l.area);
-		}
-		std::cout << "Lot area range: min=" << minA << " max=" << maxA
-				  << " (threshold=" << lotParams.minLotAreaForGarden << ")\n";
-	}
-
-	// builds and uploads all lot-derived geometry:
-	// lots, sidewalks, gardens, footprints, buildings,roofs and windows
-	void BuildAndUploadLotDerivedGeometry(
-		const road::RoadNetwork &roadNet,
-		const road::RoadParams &roadParams,
-		const road::LotCollection &lots,
-		std::vector<glm::vec3> &lotLineVerts,
-		std::vector<glm::vec3> &sidewalkLineVerts,
-		std::vector<glm::vec3> &gardenLineVerts,
-		std::vector<glm::vec3> &footprintLineVerts,
-		std::vector<glm::vec3> &buildingTriVerts,
-		std::vector<glm::vec3> &buildingQuadVerts,
-		std::vector<road::BuildingVertexPT> &buildingUrbanPT,
-		std::vector<road::BuildingVertexPT> &buildingSuburbanPT,
-		std::vector<road::BuildingVertexPT> &buildingRuralPT,
-		road::LineRenderer &lotLines,
-		road::LineRenderer &sidewalkLines,
-		road::LineRenderer &gardenLines,
-		road::LineRenderer &footprintLines,
-		road::BuildingRenderer &buildingMesh,
-		road::BuildingRenderer &roofMesh,
-		road::BuildingRenderer &windowMesh,
-		road::BuildingTexturedRenderer &buildingMeshUrban,
-		road::BuildingTexturedRenderer &buildingMeshSuburban,
-		road::BuildingTexturedRenderer &buildingMeshRural,
-		std::vector<glm::vec3> &buildingRoofQuadVerts,
-		std::vector<glm::vec3> &buildingRoofTriVerts,
-		std::vector<glm::vec3> &buildingWindowQuadVerts,
-		std::vector<glm::vec3> &buildingWindowTriVerts)
-	{
-
-		const float baseY = 0.03f;
-		const float floorH = 0.35f;
-
-		// build debug line geometry for lot-related overlays
-		road::BuildLotLineVerts(lots, lotLineVerts, 0.02f);
-		road::BuildSidewalkLineVerts(roadNet, roadParams, sidewalkLineVerts, 0.06f);
-		road::BuildGardenLineVerts(lots, gardenLineVerts, 0.021f);
-		road::BuildFootprintLineVerts(lots, footprintLineVerts, 0.022f);
-
-		// triangles for rendering
-		road::BuildBuildingTriVerts(lots, buildingTriVerts, baseY, floorH);
-
-		// quads for exporting
-		road::BuildBuildingQuadVerts(lots, buildingQuadVerts, baseY, floorH);
-
-		road::BuildBuildingTriVertsTexturedByZone(lots, buildingUrbanPT, buildingSuburbanPT, buildingRuralPT,
-												  baseY, floorH, 2.0f);
-
-		// roof details
-		road::BuildRoofDetailVerts(lots, buildingRoofQuadVerts, buildingRoofTriVerts, baseY, floorH);
-
-		road::BuildRoofDetailTriVertsTexturedByZone(
-			lots,
-			sTex.roofUrbanPT, sTex.roofSuburbanPT, sTex.roofRuralPT,
-			baseY, floorH,
-			2.0f);
-
-		sTex.roofMeshUrban.Upload(sTex.roofUrbanPT);
-		sTex.roofMeshSuburban.Upload(sTex.roofSuburbanPT);
-		sTex.roofMeshRural.Upload(sTex.roofRuralPT);
-
-		// windows (quads)
-		road::BuildWindowDetailQuads(lots, buildingWindowQuadVerts, baseY, floorH);
-
-		// convert window quads -> tris for rendering with BuildingRenderer
-		buildingWindowTriVerts.clear();
-		buildingWindowTriVerts.reserve((buildingWindowQuadVerts.size() / 4) * 6);
-		for (size_t i = 0; i + 3 < buildingWindowQuadVerts.size(); i += 4)
-		{
-			const auto &a = buildingWindowQuadVerts[i + 0];
-			const auto &b = buildingWindowQuadVerts[i + 1];
-			const auto &c = buildingWindowQuadVerts[i + 2];
-			const auto &d = buildingWindowQuadVerts[i + 3];
-			// two tris
-			buildingWindowTriVerts.push_back(a);
-			buildingWindowTriVerts.push_back(b);
-			buildingWindowTriVerts.push_back(c);
-			buildingWindowTriVerts.push_back(a);
-			buildingWindowTriVerts.push_back(c);
-			buildingWindowTriVerts.push_back(d);
-		}
-
-		std::vector<road::BuildingVertexPT> windowPTTris;
-		windowPTTris.reserve((buildingWindowQuadVerts.size() / 4) * 6);
-
-		for (size_t i = 0; i + 3 < buildingWindowQuadVerts.size(); i += 4)
-		{
-			const glm::vec3 &a = buildingWindowQuadVerts[i + 0];
-			const glm::vec3 &b = buildingWindowQuadVerts[i + 1];
-			const glm::vec3 &c = buildingWindowQuadVerts[i + 2];
-			const glm::vec3 &d = buildingWindowQuadVerts[i + 3];
-
-			// UVs (simple quad mapping)
-			road::BuildingVertexPT A{a, glm::vec2(0.0f, 0.0f)};
-			road::BuildingVertexPT B{b, glm::vec2(1.0f, 0.0f)};
-			road::BuildingVertexPT C{c, glm::vec2(1.0f, 1.0f)};
-			road::BuildingVertexPT D{d, glm::vec2(0.0f, 1.0f)};
-
-			// two tris
-			windowPTTris.push_back(A);
-			windowPTTris.push_back(B);
-			windowPTTris.push_back(C);
-
-			windowPTTris.push_back(A);
-			windowPTTris.push_back(C);
-			windowPTTris.push_back(D);
-		}
-
-		std::vector<glm::vec3> roofRenderTris;
-		roofRenderTris.reserve((buildingRoofQuadVerts.size() / 4) * 6 + buildingRoofTriVerts.size());
-
-		// convert roof quads -> tris
-		for (size_t i = 0; i + 3 < buildingRoofQuadVerts.size(); i += 4)
-		{
-			const glm::vec3 &a = buildingRoofQuadVerts[i + 0];
-			const glm::vec3 &b = buildingRoofQuadVerts[i + 1];
-			const glm::vec3 &c = buildingRoofQuadVerts[i + 2];
-			const glm::vec3 &d = buildingRoofQuadVerts[i + 3];
-
-			// two triangles: a-b-c and a-c-d
-			roofRenderTris.push_back(a);
-			roofRenderTris.push_back(b);
-			roofRenderTris.push_back(c);
-
-			roofRenderTris.push_back(a);
-			roofRenderTris.push_back(c);
-			roofRenderTris.push_back(d);
-		}
-
-		// append any roof tris (rural gable end caps )
-		roofRenderTris.insert(roofRenderTris.end(), buildingRoofTriVerts.begin(), buildingRoofTriVerts.end());
-
-		std::cout << "Building tri verts: " << buildingTriVerts.size() << "\n";
-		std::cout << "Building quad verts: " << buildingQuadVerts.size() << "\n";
-		lotLines.Upload(lotLineVerts);
-		sidewalkLines.Upload(sidewalkLineVerts);
-		gardenLines.Upload(gardenLineVerts);
-		footprintLines.Upload(footprintLineVerts);
-		buildingMesh.Upload(buildingTriVerts);
-		buildingMeshUrban.Upload(buildingUrbanPT);
-		buildingMeshSuburban.Upload(buildingSuburbanPT);
-		buildingMeshRural.Upload(buildingRuralPT);
-		roofMesh.Upload(roofRenderTris);
-		windowMesh.Upload(buildingWindowTriVerts);
-		sTex.windowMeshTex.Upload(windowPTTris);
-
-		std::cout << "Lots count: " << lots.lots.size() << "\n";
-		std::cout << "Lot verts: " << lotLineVerts.size() << "\n";
-		std::cout << "Garden verts: " << gardenLineVerts.size() << "\n";
 	}
 
 	// updates the OpenGL viewport and clears the frame buffers
@@ -916,187 +415,6 @@ namespace
 		}
 	}
 
-	// draws the 3D city meshes, including roads, sidewalks, buildings, roofs and windows
-	void Draw3DMeshesIfEnabled(
-		Gui &gui, bool is3D,
-		Shader &lineShader,
-		Shader &litShader,
-		const glm::mat4 &viewProjection,
-
-		road::BuildingRenderer &roadMeshStreet,
-		road::BuildingRenderer &roadMeshHighway,
-		road::BuildingRenderer &sidewalkMesh,
-		road::BuildingRenderer &buildingMesh,
-
-		road::BuildingTexturedRenderer &buildingMeshUrban,
-		road::BuildingTexturedRenderer &buildingMeshSuburban,
-		road::BuildingTexturedRenderer &buildingMeshRural,
-
-		road::BuildingTexturedRenderer &roofMeshUrban,
-		road::BuildingTexturedRenderer &roofMeshSuburban,
-		road::BuildingTexturedRenderer &roofMeshRural,
-
-		road::BuildingTexturedRenderer &windowMeshTex,
-
-		road::BuildingTexturedRenderer &roadMeshStreetTex,
-		road::BuildingTexturedRenderer &roadMeshHighwayTex,
-		road::BuildingTexturedRenderer &sidewalkMeshTex,
-
-		GLuint urbanTex, GLuint suburbanTex, GLuint ruralTex,
-		GLuint roofUrbanTex, GLuint roofSuburbanTex, GLuint roofRuralTex,
-		GLuint roadTex, GLuint sidewalkTex,
-		GLuint windowTex,
-
-		bool useUrban, bool useSuburban, bool useRural,
-		bool useRoofUrban, bool useRoofSuburban, bool useRoofRural,
-		bool useRoadTex, bool useSidewalkTex,
-		bool useWindowTex)
-	{
-		if (!is3D)
-			return;
-
-		glEnable(GL_CULL_FACE);
-		glCullFace(GL_BACK);
-
-		if (useRoadTex && roadTex != 0)
-		{
-			const glm::vec3 roadFallback(0.10f, 0.10f, 0.10f);
-			roadMeshStreetTex.Draw(litShader, viewProjection, roadTex, true, roadFallback);
-			roadMeshHighwayTex.Draw(litShader, viewProjection, roadTex, true, roadFallback);
-		}
-		else
-		{
-			litShader.use();
-			glUniform1i(glGetUniformLocation(litShader.ID, "uUseTexture"), 0);
-
-			glUniform3f(glGetUniformLocation(litShader.ID, "uColor"), 0.12f, 0.12f, 0.12f);
-			roadMeshStreet.Draw(litShader, viewProjection);
-
-			glUniform3f(glGetUniformLocation(litShader.ID, "uColor"), 0.07f, 0.07f, 0.07f);
-			roadMeshHighway.Draw(litShader, viewProjection);
-		}
-
-		if (useSidewalkTex && sidewalkTex != 0)
-		{
-			const glm::vec3 swFallback(0.70f, 0.70f, 0.70f);
-			sidewalkMeshTex.Draw(litShader, viewProjection, sidewalkTex, true, swFallback);
-		}
-		else
-		{
-			litShader.use();
-			glUniform1i(glGetUniformLocation(litShader.ID, "uUseTexture"), 0);
-
-			glUniform3f(glGetUniformLocation(litShader.ID, "uColor"), 0.70f, 0.70f, 0.70f);
-			sidewalkMesh.Draw(litShader, viewProjection);
-		}
-
-		const bool anyTextured = (useUrban || useSuburban || useRural);
-
-		if (anyTextured)
-		{
-			const glm::vec3 urbanFallback(0.78f, 0.78f, 0.80f);
-			const glm::vec3 subFallback(0.75f, 0.75f, 0.78f);
-			const glm::vec3 rurFallback(0.72f, 0.72f, 0.75f);
-
-			buildingMeshUrban.Draw(litShader, viewProjection, urbanTex, useUrban, urbanFallback);
-			buildingMeshSuburban.Draw(litShader, viewProjection, suburbanTex, useSuburban, subFallback);
-			buildingMeshRural.Draw(litShader, viewProjection, ruralTex, useRural, rurFallback);
-		}
-		else
-		{
-			litShader.use();
-			glUniform1i(glGetUniformLocation(litShader.ID, "uUseTexture"), 0);
-			glUniform3f(glGetUniformLocation(litShader.ID, "uColor"), 0.75f, 0.75f, 0.78f);
-			buildingMesh.Draw(litShader, viewProjection);
-		}
-
-		// roofs
-		if (gui.RenderBuildingRoofs())
-		{
-			glDisable(GL_CULL_FACE);
-
-			glEnable(GL_POLYGON_OFFSET_FILL);
-			// to avoid Z-fighting
-			glPolygonOffset(-1.0f, -1.0f);
-
-			const glm::vec3 roofFallback(0.65f, 0.65f, 0.67f);
-			roofMeshUrban.Draw(litShader, viewProjection, roofUrbanTex, useRoofUrban, roofFallback);
-			roofMeshSuburban.Draw(litShader, viewProjection, roofSuburbanTex, useRoofSuburban, roofFallback);
-			roofMeshRural.Draw(litShader, viewProjection, roofRuralTex, useRoofRural, roofFallback);
-
-			glDisable(GL_POLYGON_OFFSET_FILL);
-
-			glEnable(GL_CULL_FACE);
-			glCullFace(GL_BACK);
-		}
-
-		// windows
-		if (gui.RenderBuildingWindows())
-		{
-			glEnable(GL_BLEND);
-			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-			glEnable(GL_POLYGON_OFFSET_FILL);
-			glPolygonOffset(-1.0f, -1.0f);
-
-			glDepthMask(GL_FALSE);
-
-			windowMeshTex.Draw(
-				litShader,
-				viewProjection,
-				windowTex,
-				useWindowTex,
-				glm::vec3(0.20f, 0.35f, 0.55f));
-
-			glDisable(GL_POLYGON_OFFSET_FILL);
-
-			glDepthMask(GL_TRUE);
-			glDisable(GL_BLEND);
-		}
-	}
-
-	// draws he ground plane and returns its extents for export use
-	GroundContext DrawGroundAndGetExtents(
-		Primitives &primitives,
-		Shader &primShader,
-		Shader &litShader,
-		const glm::mat4 &viewProjection,
-		const CityContext &cityCTX,
-		bool useGroundTex,
-		GLuint groundTex,
-		road::BuildingTexturedRenderer &groundMeshTex,
-		std::vector<road::BuildingVertexPT> &groundPT)
-	{
-		GroundContext g;
-		g.margin = 20.0f;
-
-		// ground half extents based on city size
-		g.halfW = cityCTX.cityR + g.margin;
-		g.halfH = cityCTX.cityR + g.margin;
-
-		if (useGroundTex && groundTex != 0)
-		{
-			BuildGroundPT(
-				groundPT,
-				cityCTX.centerXZ,
-				g.halfW,
-				g.halfH,
-				0.0f, // y
-				6.0f  // uv meters per tile
-			);
-
-			groundMeshTex.Upload(groundPT);
-
-			groundMeshTex.Draw(litShader, viewProjection, groundTex, groundTex != 0, glm::vec3(0.0f, 0.30f, 0.0f));
-		}
-		else
-		{
-			primitives.DrawGround(primShader, viewProjection, cityCTX.centerXZ, g.halfW, g.halfH);
-		}
-
-		return g;
-	}
-
 	static std::vector<glm::vec3> StripBuildingTopCapQuads(const std::vector<glm::vec3> &buildingQuadVerts)
 	{
 
@@ -1184,69 +502,6 @@ namespace
 		gui.SetLastExportResult(ok, outPath);
 	}
 
-	// draws optional debug overlays such as roads, lots, gardens and footprints
-	void DrawDebugLinesIfEnabled(bool showRoads, Gui &gui, Shader &lineShader, const glm::mat4 &viewProjection,
-								 road::LineRenderer &highwayLines, road::LineRenderer &streetLines,
-								 road::LineRenderer &lotLines, road::LineRenderer &sidewalkLines,
-								 road::LineRenderer &gardenLines, road::LineRenderer &footprintLines)
-	{
-
-		if (!showRoads)
-		{
-			return;
-		}
-
-		lineShader.use();
-
-		if (gui.ShowRoadLines())
-		{
-			// highways
-			glLineWidth(4.0f);
-			glUniform3f(glGetUniformLocation(lineShader.ID, "uColor"), 0.05f, 0.05f, 0.05f);
-			highwayLines.Draw(lineShader, viewProjection);
-
-			// streets
-			glLineWidth(1.0f);
-			glUniform3f(glGetUniformLocation(lineShader.ID, "uColor"), 0.05f, 0.05f, 0.05f);
-			streetLines.Draw(lineShader, viewProjection);
-		}
-		// lots
-		if (gui.ShowLotDebug())
-		{
-			glLineWidth(2.0f);
-			glUniform3f(glGetUniformLocation(lineShader.ID, "uColor"), 0.1f, 0.4f, 1.0f);
-			lotLines.Draw(lineShader, viewProjection);
-			glLineWidth(1.0f);
-		}
-
-		// sidewalks
-		if (gui.ShowSideWalks())
-		{
-			glLineWidth(2.0f);
-			glUniform3f(glGetUniformLocation(lineShader.ID, "uColor"), 0.65f, 0.65f, 0.65f);
-			sidewalkLines.Draw(lineShader, viewProjection);
-			glLineWidth(1.0f);
-		}
-
-		// gardens
-		if (gui.ShowGardens())
-		{
-			glLineWidth(2.0f);
-			glUniform3f(glGetUniformLocation(lineShader.ID, "uColor"), 0.1f, 0.9f, 0.2f);
-			gardenLines.Draw(lineShader, viewProjection);
-			glLineWidth(1.0f);
-		}
-
-		// building footprints
-		if (gui.ShowFootprints())
-		{
-			glLineWidth(2.0f);
-			glUniform3f(glGetUniformLocation(lineShader.ID, "uColor"), 0.95f, 0.65f, 0.15f);
-			footprintLines.Draw(lineShader, viewProjection);
-			glLineWidth(1.0f);
-		}
-	}
-
 	// closes the application if the GUI requested a quit action
 	void HandleQuitIfRequested(Gui &gui, GLFWwindow *window)
 	{
@@ -1276,226 +531,6 @@ namespace
 		glfwPollEvents();
 	}
 
-	// runs the full city generation pipeline and uploads all resulting geometry
-	void GenerateCityNow(
-		Gui &gui,
-		bool &showRoads,
-		road::RoadGenerator &roadGen,
-		road::LotSubdivision &lotGen,
-		road::RoadParams &roadParams,
-		road::RoadNetwork &roadNet,
-		road::LotCollection &lots,
-
-		// 3D meshes:
-		road::BuildingRenderer &roadMeshHighway,
-		road::BuildingRenderer &roadMeshStreet,
-		road::BuildingRenderer &sidewalkMesh,
-		road::BuildingRenderer &buildingMesh,
-		road::BuildingTexturedRenderer &buildingMeshUrban,
-		road::BuildingTexturedRenderer &buildingMeshSuburban,
-		road::BuildingTexturedRenderer &buildingMeshRural,
-		road::BuildingTexturedRenderer &roadMeshHighwayTex,
-		road::BuildingTexturedRenderer &roadMeshStreetTex,
-		road::BuildingTexturedRenderer &sidewalkMeshTex,
-
-		// Line renderers:
-		road::LineRenderer &highwayLines,
-		road::LineRenderer &streetLines,
-		road::LineRenderer &lotLines,
-		road::LineRenderer &sidewalkLines,
-		road::LineRenderer &gardenLines,
-		road::LineRenderer &footprintLines,
-
-		// Geometry buffers:
-		std::vector<glm::vec3> &roadHighwayTris,
-		std::vector<glm::vec3> &roadStreetTris,
-		std::vector<glm::vec3> &sidewalkTris,
-		std::vector<glm::vec3> &lotLineVerts,
-		std::vector<glm::vec3> &sidewalkLineVerts,
-		std::vector<glm::vec3> &gardenLineVerts,
-		std::vector<glm::vec3> &footprintLineVerts,
-		std::vector<glm::vec3> &buildingTriVerts,
-		std::vector<glm::vec3> &buildingQuadVerts,
-
-		// textures:
-		std::vector<road::BuildingVertexPT> &buildingUrbanPT,
-		std::vector<road::BuildingVertexPT> &buildingSubUrbanPT,
-		std::vector<road::BuildingVertexPT> &buildingRuralPT,
-		std::vector<road::BuildingVertexPT> &roadHighwayPT,
-		std::vector<road::BuildingVertexPT> &roadStreetPT,
-		std::vector<road::BuildingVertexPT> &sidewalkPT)
-	{
-
-		// pull params from GUI
-		roadParams = gui.GetParams();
-		PrintRoadParams(roadParams);
-
-		// start timer
-		using Clock = std::chrono::high_resolution_clock;
-		auto t0 = Clock::now();
-
-		// generate road network
-		roadNet = roadGen.Generate(roadParams);
-
-		// build & upload road + sidewalk slabs
-		BuildAndUploadRoadAndSidewalkMeshes(
-			roadNet, roadParams,
-			roadHighwayTris, roadStreetTris, sidewalkTris,
-			roadMeshHighway, roadMeshStreet, sidewalkMesh);
-
-		// build PT buffers (UVs) + upload textured renderers
-		ConvertTriVertsToPT_WorldXZ(roadHighwayTris, roadHighwayPT, 3.0f);
-		ConvertTriVertsToPT_WorldXZ(roadStreetTris, roadStreetPT, 3.0f);
-		ConvertTriVertsToPT_WorldXZ(sidewalkTris, sidewalkPT, 2.0f);
-
-		roadMeshHighwayTex.Upload(roadHighwayPT);
-		roadMeshStreetTex.Upload(roadStreetPT);
-		sidewalkMeshTex.Upload(sidewalkPT);
-
-		// build & upload highway/street line renderers
-		showRoads = true;
-		BuildAndUploadRoadLineVerts(roadNet, highwayLines, streetLines);
-
-		// lot generation
-		road::LotParams lotParams = MakeLotParamsFromRoadParams(gui, roadParams);
-		lots = lotGen.GenerateLots(roadNet, lotParams);
-
-		// debug stats
-		PrintGardenPipelineStats(lots, lotParams);
-
-		// build derived geometry (lots/sidewalk/gardens/footprints/buildings) + upload
-		BuildAndUploadLotDerivedGeometry(
-			roadNet, roadParams, lots,
-			lotLineVerts, sidewalkLineVerts, gardenLineVerts, footprintLineVerts,
-			buildingTriVerts, buildingQuadVerts, buildingUrbanPT, buildingSubUrbanPT,
-			buildingRuralPT, lotLines, sidewalkLines, gardenLines, footprintLines,
-			buildingMesh, sBuilding.roofMesh, sBuilding.windowMesh,
-			buildingMeshUrban, buildingMeshSuburban, buildingMeshRural,
-			sBuilding.buildingRoofQuadVerts, sBuilding.buildingRoofTriVerts, sBuilding.buildingWindowQuadVerts,
-			sBuilding.buildingWindowTriVerts);
-
-		auto t1 = Clock::now();
-		gLastGenerationMs = std::chrono::duration<double, std::milli>(t1 - t0).count();
-		gui.SetLastGenerationMs(gLastGenerationMs);
-	}
-
-	// triggers city generation when requested by the GUI
-	void GenerateCityIfRequested(
-		Gui &gui,
-		bool &showRoads,
-		road::RoadGenerator &roadGen,
-		road::LotSubdivision &lotGen,
-		road::RoadParams &roadParams,
-		road::RoadNetwork &roadNet,
-		road::LotCollection &lots,
-
-		// 3D meshes:
-		road::BuildingRenderer &roadMeshHighway,
-		road::BuildingRenderer &roadMeshStreet,
-		road::BuildingRenderer &sidewalkMesh,
-		road::BuildingRenderer &buildingMesh,
-		road::BuildingTexturedRenderer &buildingMeshUrban,
-		road::BuildingTexturedRenderer &buildingMeshSuburban,
-		road::BuildingTexturedRenderer &buildingMeshRural,
-		road::BuildingTexturedRenderer &roadMeshHighwayTex,
-		road::BuildingTexturedRenderer &roadMeshStreetTex,
-		road::BuildingTexturedRenderer &sidewalkMeshTex,
-
-		// Line renderers:
-		road::LineRenderer &highwayLines,
-		road::LineRenderer &streetLines,
-		road::LineRenderer &lotLines,
-		road::LineRenderer &sidewalkLines,
-		road::LineRenderer &gardenLines,
-		road::LineRenderer &footprintLines,
-
-		// Geometry buffers:
-		std::vector<glm::vec3> &roadHighwayTris,
-		std::vector<glm::vec3> &roadStreetTris,
-		std::vector<glm::vec3> &sidewalkTris,
-		std::vector<glm::vec3> &lotLineVerts,
-		std::vector<glm::vec3> &sidewalkLineVerts,
-		std::vector<glm::vec3> &gardenLineVerts,
-		std::vector<glm::vec3> &footprintLineVerts,
-		std::vector<glm::vec3> &buildingTriVerts,
-		std::vector<glm::vec3> &buildingQuadVerts,
-
-		// textures:
-		std::vector<road::BuildingVertexPT> &buildingUrbanPT,
-		std::vector<road::BuildingVertexPT> &buildingSubUrbanPT,
-		std::vector<road::BuildingVertexPT> &buildingRuralPT,
-		std::vector<road::BuildingVertexPT> &roadHighwayPT,
-		std::vector<road::BuildingVertexPT> &roadStreetPT,
-		std::vector<road::BuildingVertexPT> &sidewalkPT)
-	{
-		if (!gui.WantsGenerate())
-			return;
-
-		GenerateCityNow(
-			gui, showRoads, roadGen, lotGen, roadParams, roadNet, lots,
-			roadMeshHighway, roadMeshStreet, sidewalkMesh, buildingMesh,
-			buildingMeshUrban, buildingMeshSuburban, buildingMeshRural,
-			roadMeshHighwayTex, roadMeshStreetTex, sidewalkMeshTex,
-			highwayLines, streetLines, lotLines, sidewalkLines, gardenLines, footprintLines,
-			roadHighwayTris, roadStreetTris, sidewalkTris,
-			lotLineVerts, sidewalkLineVerts, gardenLineVerts, footprintLineVerts,
-			buildingTriVerts, buildingQuadVerts,
-			buildingUrbanPT, buildingSubUrbanPT, buildingRuralPT,
-			roadHighwayPT, roadStreetPT, sidewalkPT);
-
-		// pull params from GUI
-		roadParams = gui.GetParams();
-		PrintRoadParams(roadParams);
-
-		// start timer
-		using Clock = std::chrono::high_resolution_clock;
-		auto t0 = Clock::now();
-
-		// generate road network
-		roadNet = roadGen.Generate(roadParams);
-
-		// build & upload road + sidewalk slabs
-		BuildAndUploadRoadAndSidewalkMeshes(
-			roadNet, roadParams,
-			roadHighwayTris, roadStreetTris, sidewalkTris,
-			roadMeshHighway, roadMeshStreet, sidewalkMesh);
-
-		// build PT buffers (UVs) + upload textured renderers
-		ConvertTriVertsToPT_WorldXZ(roadHighwayTris, roadHighwayPT, 3.0f);
-		ConvertTriVertsToPT_WorldXZ(roadStreetTris, roadStreetPT, 3.0f);
-		ConvertTriVertsToPT_WorldXZ(sidewalkTris, sidewalkPT, 2.0f);
-
-		roadMeshHighwayTex.Upload(roadHighwayPT);
-		roadMeshStreetTex.Upload(roadStreetPT);
-		sidewalkMeshTex.Upload(sidewalkPT);
-
-		// build & upload highway/street line renderers
-		showRoads = true;
-		BuildAndUploadRoadLineVerts(roadNet, highwayLines, streetLines);
-
-		// lot generation
-		road::LotParams lotParams = MakeLotParamsFromRoadParams(gui, roadParams);
-		lots = lotGen.GenerateLots(roadNet, lotParams);
-
-		// debug stats
-		PrintGardenPipelineStats(lots, lotParams);
-
-		// build derived geometry (lots/sidewalk/gardens/footprints/buildings) + upload
-		BuildAndUploadLotDerivedGeometry(
-			roadNet, roadParams, lots,
-			lotLineVerts, sidewalkLineVerts, gardenLineVerts, footprintLineVerts,
-			buildingTriVerts, buildingQuadVerts, buildingUrbanPT, buildingSubUrbanPT,
-			buildingRuralPT, lotLines, sidewalkLines, gardenLines, footprintLines,
-			buildingMesh, sBuilding.roofMesh, sBuilding.windowMesh,
-			buildingMeshUrban, buildingMeshSuburban, buildingMeshRural,
-			sBuilding.buildingRoofQuadVerts, sBuilding.buildingRoofTriVerts, sBuilding.buildingWindowQuadVerts,
-			sBuilding.buildingWindowTriVerts);
-
-		auto t1 = Clock::now();
-		gLastGenerationMs = std::chrono::duration<double, std::milli>(t1 - t0).count();
-		gui.SetLastGenerationMs(gLastGenerationMs);
-	}
-
 	// computes the directional light vector and light-space matrix for shadow mapping
 	static void ComputeLightSpace(
 		const CityContext &city,
@@ -1517,110 +552,6 @@ namespace
 		const glm::mat4 lightProj = glm::ortho(-ortho, ortho, -ortho, ortho, 0.1f, r * 6.0f);
 
 		outLightSpace = lightProj * lightView;
-	}
-
-	// renders the depth-only shadow pass from the light's perspective
-	static void RenderShadowPassIf3D(
-		bool is3D,
-		Gui &gui,
-		ShadowMap &shadowMap,
-		Shader &shadowDepthShader,
-		const glm::mat4 &lightSpace,
-		const FrameContext &frame,
-
-		// toggles + textures
-		bool useUrban, bool useSuburban, bool useRural,
-		bool useRoadTex, unsigned int roadTex,
-		bool useSidewalkTex, unsigned int sidewalkTex,
-
-		// non-textured renderers
-		road::BuildingRenderer &roadMeshHighway,
-		road::BuildingRenderer &roadMeshStreet,
-		road::BuildingRenderer &sidewalkMesh,
-		road::BuildingRenderer &buildingMesh,
-
-		// textured renderers
-		road::BuildingTexturedRenderer &roadMeshStreetTex,
-		road::BuildingTexturedRenderer &roadMeshHighwayTex,
-		road::BuildingTexturedRenderer &sidewalkMeshTex,
-
-		road::BuildingTexturedRenderer &buildingMeshUrban,
-		road::BuildingTexturedRenderer &buildingMeshSuburban,
-		road::BuildingTexturedRenderer &buildingMeshRural,
-
-		road::BuildingTexturedRenderer &roofMeshUrban,
-		road::BuildingTexturedRenderer &roofMeshSuburban,
-		road::BuildingTexturedRenderer &roofMeshRural,
-
-		road::BuildingTexturedRenderer &windowMeshTex,
-		road::BuildingTexturedRenderer &groundMeshTex)
-	{
-		if (!is3D)
-			return;
-
-		shadowMap.BeginDepthPass();
-
-		glEnable(GL_POLYGON_OFFSET_FILL);
-		glPolygonOffset(2.5f, 4.0f);
-
-		shadowDepthShader.use();
-
-		const bool anyBuildingTex = (useUrban || useSuburban || useRural);
-
-		// roads
-		if (useRoadTex && roadTex != 0)
-		{
-			roadMeshStreetTex.Draw(shadowDepthShader, lightSpace, 0, false, glm::vec3(0));
-			roadMeshHighwayTex.Draw(shadowDepthShader, lightSpace, 0, false, glm::vec3(0));
-		}
-		else
-		{
-			roadMeshHighway.Draw(shadowDepthShader, lightSpace);
-			roadMeshStreet.Draw(shadowDepthShader, lightSpace);
-		}
-
-		// sidewalks
-		if (useSidewalkTex && sidewalkTex != 0)
-		{
-			sidewalkMeshTex.Draw(shadowDepthShader, lightSpace, 0, false, glm::vec3(0));
-		}
-		else
-		{
-			sidewalkMesh.Draw(shadowDepthShader, lightSpace);
-		}
-
-		// building bases
-		if (anyBuildingTex)
-		{
-			buildingMeshUrban.Draw(shadowDepthShader, lightSpace, 0, false, glm::vec3(0));
-			buildingMeshSuburban.Draw(shadowDepthShader, lightSpace, 0, false, glm::vec3(0));
-			buildingMeshRural.Draw(shadowDepthShader, lightSpace, 0, false, glm::vec3(0));
-		}
-		else
-		{
-			buildingMesh.Draw(shadowDepthShader, lightSpace);
-		}
-
-		// roofs
-		if (gui.RenderBuildingRoofs())
-		{
-			roofMeshUrban.Draw(shadowDepthShader, lightSpace, 0, false, glm::vec3(0));
-			roofMeshSuburban.Draw(shadowDepthShader, lightSpace, 0, false, glm::vec3(0));
-			roofMeshRural.Draw(shadowDepthShader, lightSpace, 0, false, glm::vec3(0));
-		}
-
-		// windows
-		if (gui.RenderBuildingWindows())
-		{
-			windowMeshTex.Draw(shadowDepthShader, lightSpace, 0, false, glm::vec3(0));
-		}
-
-		// ground
-		groundMeshTex.Draw(shadowDepthShader, lightSpace, 0, false, glm::vec3(0));
-
-		glDisable(GL_POLYGON_OFFSET_FILL);
-
-		shadowMap.EndDepthPass(frame.w, frame.h);
 	}
 
 	// uploads lighting and shadow-map uniforms for the main lit shader
@@ -1952,11 +883,16 @@ int main(void)
 		// camera  and ground adjustment
 		FrameContext frame = BeginFrameTimingAndVP(window, sInit.camera);
 
-		RenderShadowPassIf3D(is3D, gui, sInit.shadowMap, shadowDepthShader, lightSpace, frame, sTex.useUrban, sTex.useSuburban, sTex.useRural,
-							 sTex.useRoadTex, sTex.roadTex, sTex.useSidewalkTex, sTex.sidewalkTex, sRoads.roadMeshHighway, sRoads.roadMeshStreet,
-							 sRoads.sidewalkMesh, sBuilding.buildingMesh, sTex.roadMeshStreetTex, sTex.roadMeshHighwayTex, sTex.sidewalkMeshTex,
-							 sTex.buildingMeshUrban, sTex.buildingMeshSuburban, sTex.buildingMeshRural, sTex.roofMeshUrban, sTex.roofMeshSuburban,
-							 sTex.roofMeshRural, sTex.windowMeshTex, sTex.groundMeshTex);
+		rendering::RenderShadowPassIf3D(
+			is3D,
+			gui,
+			sInit.shadowMap,
+			shadowDepthShader,
+			lightSpace,
+			frame,
+			sRoads,
+			sBuilding,
+			sTex);
 
 		SetupLightingAndShadowUniforms(litShader, sInit.shadowMap, lightSpace, lightDir, is3D);
 
@@ -1967,21 +903,27 @@ int main(void)
 		UpdateCameraPerFrame(sInit.camera, window, frame.deltaTime, is3D);
 
 		// draws 3D meshes (only when is3D)
-		Draw3DMeshesIfEnabled(gui, is3D, lineShader, litShader, frame.viewProjection, sRoads.roadMeshStreet, sRoads.roadMeshHighway,
-							  sRoads.sidewalkMesh, sBuilding.buildingMesh, sTex.buildingMeshUrban, sTex.buildingMeshSuburban, sTex.buildingMeshRural,
-							  sTex.roofMeshUrban, sTex.roofMeshSuburban, sTex.roofMeshRural, sTex.windowMeshTex,
-							  sTex.roadMeshStreetTex, sTex.roadMeshHighwayTex, sTex.sidewalkMeshTex, sTex.urbanTex, sTex.suburbanTex, sTex.ruralTex,
-							  sTex.roofUrbanTex, sTex.roofSuburbanTex, sTex.roofRuralTex, sTex.roadTex, sTex.sidewalkTex,
-							  sTex.windowTex, sTex.useUrban, sTex.useSuburban, sTex.useRural, sTex.useRoofUrban, sTex.useRoofSuburban, sTex.useRoofRural,
-							  sTex.useRoadTex, sTex.useSidewalkTex, sTex.useWindowTex);
+		rendering::Draw3DMeshesIfEnabled(
+			gui,
+			is3D,
+			litShader,
+			frame.viewProjection,
+			sRoads,
+			sBuilding,
+			sTex);
 
 		DrawSkyboxPass(sInit.skybox, sInit.camera, frame.aspect, is3D);
 
 		glDisable(GL_CULL_FACE);
 
 		// ground
-		GroundContext ground = DrawGroundAndGetExtents(sInit.primitives, primShader, litShader, frame.viewProjection,
-													   city, sTex.useGroundTex, sTex.groundTex, sTex.groundMeshTex, sTex.groundPT);
+		GroundContext ground = rendering::DrawGroundAndGetExtents(
+			sInit.primitives,
+			primShader,
+			litShader,
+			frame.viewProjection,
+			city,
+			sTex);
 
 		glEnable(GL_CULL_FACE);
 		glCullFace(GL_BACK);
@@ -1990,7 +932,12 @@ int main(void)
 		HandleExportIfRequested(gui, city, ground, sRoads.roadHighwayTris, sRoads.roadStreetTris, sRoads.sidewalkTris, sBuilding.buildingTriVerts, sBuilding.buildingQuadVerts, sBuilding.buildingRoofQuadVerts, sBuilding.buildingRoofTriVerts, sBuilding.buildingWindowQuadVerts, sBuilding.buildingWindowTriVerts);
 
 		// debug lines
-		DrawDebugLinesIfEnabled(sRoads.showRoads, gui, lineShader, frame.viewProjection, sRoads.highwayLines, sRoads.streetLines, sLots.lotLines, sRoads.sidewalkLines, sLots.gardenLines, sLots.footprintLines);
+		rendering::DrawDebugLinesIfEnabled(
+			gui,
+			lineShader,
+			frame.viewProjection,
+			sRoads,
+			sLots);
 
 		// show overlay first and delay generation to next frame
 		HandleGenerationOverlayAndQueue(gui);
@@ -2017,16 +964,7 @@ int main(void)
 		{
 			gGeneratePending = false;
 
-			GenerateCityNow(gui, sRoads.showRoads, sRoads.roadGen, sLots.lotGen, sRoads.roadParams, sRoads.roadNet, sLots.lots,
-							sRoads.roadMeshHighway, sRoads.roadMeshStreet, sRoads.sidewalkMesh, sBuilding.buildingMesh,
-							sTex.buildingMeshUrban, sTex.buildingMeshSuburban, sTex.buildingMeshRural,
-							sTex.roadMeshHighwayTex, sTex.roadMeshStreetTex, sTex.sidewalkMeshTex,
-							sRoads.highwayLines, sRoads.streetLines, sLots.lotLines, sRoads.sidewalkLines, sLots.gardenLines, sLots.footprintLines,
-							sRoads.roadHighwayTris, sRoads.roadStreetTris, sRoads.sidewalkTris,
-							sLots.lotLineVerts, sRoads.sidewalkLineVerts, sLots.gardenLineVerts, sLots.footprintLineVerts,
-							sBuilding.buildingTriVerts, sBuilding.buildingQuadVerts,
-							sTex.buildingUrbanPT, sTex.buildingSuburbanPT, sTex.buildingRuralPT,
-							sTex.roadHighwayPT, sTex.roadStreetPT, sTex.sidewalkPT);
+			generation::GenerateCityNow(gui, sRoads, sLots, sBuilding, sTex);
 
 			gShowGeneratingOverlay = false;
 		}
