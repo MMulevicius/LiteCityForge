@@ -2,26 +2,23 @@
 
 #include "GUI/Gui.h"
 #include <glad/glad.h>
+#include "Textures/TextureContext.h"
 
 namespace textures
 {
     void HandleWindowTextureRequests(
         Gui &gui,
-        GLuint &windowTex,
-        bool &useWindowTex);
+        TextureContext &textureState);
 
-    void HandleSceneTextureRequests(Gui &gui,
-                                    GLuint &roadTex, bool &useRoad,
-                                    GLuint &sidewalkTex, bool &useSidewalk,
-                                    GLuint &groundTex, bool &useGround);
+    void HandleSceneTextureRequests(
+        Gui &gui,
+        TextureContext &textureState);
 
     void HandleBuildingTextureRequests(
         Gui &gui,
-        GLuint &urbanTex, GLuint &suburbanTex, GLuint &ruralTex,
-        bool &useUrban, bool &useSuburban, bool &useRural);
+        TextureContext &textureState);
 
     void HandleRoofTextureRequests(
         Gui &gui,
-        GLuint &urbanRoof, GLuint &suburbanRoof, GLuint &ruralRoof,
-        bool &useUrbanRoof, bool &useSuburbanRoof, bool &useRuralRoof);
+        TextureContext &textureState);
 }

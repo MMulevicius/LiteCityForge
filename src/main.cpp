@@ -163,9 +163,6 @@ namespace
 			gShowGeneratingOverlay = true;
 			gGeneratePending = true;
 		}
-
-		// draw loading overlay on top of everything
-		DrawGeneratingOverlay();
 	}
 
 }
@@ -413,16 +410,15 @@ int main(void)
 		BeginGuiFrame(gui);
 
 		// texture handling
-		textures::HandleBuildingTextureRequests(gui, sTex.urbanTex, sTex.suburbanTex, sTex.ruralTex, sTex.useUrban, sTex.useSuburban, sTex.useRural);
-
+		textures::HandleBuildingTextureRequests(gui, sTex);
 		// building window texture handling
-		textures::HandleWindowTextureRequests(gui, sTex.windowTex, sTex.useWindowTex);
+		textures::HandleWindowTextureRequests(gui, sTex);
 
 		// building roof texture handling
-		textures::HandleRoofTextureRequests(gui, sTex.roofUrbanTex, sTex.roofSuburbanTex, sTex.roofRuralTex, sTex.useRoofUrban, sTex.useRoofSuburban, sTex.useRoofRural);
+		textures::HandleRoofTextureRequests(gui, sTex);
 
 		// road, sidewalk and ground handling
-		textures::HandleSceneTextureRequests(gui, sTex.roadTex, sTex.useRoadTex, sTex.sidewalkTex, sTex.useSidewalkTex, sTex.groundTex, sTex.useGroundTex);
+		textures::HandleSceneTextureRequests(gui, sTex);
 
 		// choose city radius and center based on wheter roads are shown
 		CityContext city = ResolveCityContext(sRoads.showRoads, gui, sRoads.roadParams);
