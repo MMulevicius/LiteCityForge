@@ -256,7 +256,7 @@ Candidate validation applies both global and local constraints. Global constrain
 After the road graph is built, road adjacency and boundary offsets are used to derive buildable plots rather than detecting only fully enclosed road loops. The plots are assigned urban, suburban, or rural characteristics according to their distance from the city centre. Those zones influence plot and building dimensions, density, and height limits. Setbacks define the usable area within each plot, and adaptive footprint rules with controlled variation fit buildings to that area. The resulting road, sidewalk, and building meshes are assembled into scene data for rendering.</p>
 
 
-<h3>Observed or documented limitations</h3>
+<h3>Known limitations</h3>
 <ul>
   <li>Road-junction geometry artifacts</li>
   <li>Not adjusted rules for different angle generation</li>
@@ -265,4 +265,7 @@ After the road graph is built, road adjacency and boundary offsets are used to d
   <li>Limited architectural variety and realism</li>
   <li>Export limitations</li>
 </ul>
+
+<h3>Licensing</h3>
+<p>LiteCityForge's code is licensed under the MIT License; see [LICENSE](LICENSE). Third-party libraries and assets retain their own licenses and notices; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).</p>
 
