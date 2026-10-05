@@ -15,7 +15,7 @@
   <li>Export selected city geometry as OBJ files with accompanying MTL materials.</li>
 </ul>
 
-<h3>Build and run (Windows)</h3>
+<h3>Build and run (Windows) 🪟</h3>
 <h4>Requirements:</h4>
 <ul>
   <li>Windows 10 or 11</li>
@@ -58,6 +58,58 @@
    ```
   </li>
   <p>NOTE: CMake copies the required "assets" folder beside the executable during the build.</p>
+</ol>
+
+<h3>Build and run (Arch Linux) 🐧</h3>
+<h4>Requirements:</h4>
+<ul>
+  <li>A C++17 compiler, such as GCC</li>
+  <li>CMake 3.16 or newer</li>
+  <li>Git</li>
+  <li>X11 and OpenGL development packages</li>
+  <li>An OpenGL 3.3-capable graphics driver</li>
+</ul>
+
+<h4>Build steps</h4>
+<ol>
+  <li>Install required packages:
+    
+  ```bash
+  sudo pacman -S --needed base-devel cmake git mesa libglvnd \
+    xorgproto libx11 libxext libxrandr libxinerama libxcursor libxi
+  ```
+  </li>
+  <li>
+    Clone the repository:
+
+   ```bash
+   git clone https://github.com/MMulevicius/LiteCityForge.git
+   ```
+  </li>
+  <li>Go into the project folder:
+
+   ```bash
+   cd LiteCityForge
+   ```
+  </li>
+  <li>Configure a Release build:
+
+   ```bash
+   cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+   ```
+  </li>
+  <li>Build the application:
+
+   ```bash
+   cmake --build build --parallel
+   ```
+  </li>
+  <li>Run it:
+
+   ```bash
+   ./build/ProceduralCityGenerator
+   ```
+  </li>
 </ol>
 
 <h3>Technologies</h3>
