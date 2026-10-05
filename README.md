@@ -1,5 +1,6 @@
 <h1> LiteCityForge / Procedural City Generation Tool </h1>
 <p>An interactive C++ and OpenGL tool for generating customizable 3D cities</p>
+<h6>C++17 · OpenGL 3.3 · GLSL · GLFW · Dear ImGui · CMake</h6>
 
 ![2D view generation](src/docs/images/city-2D-showcase.gif)
 
@@ -111,8 +112,55 @@
    ```
   </li>
 </ol>
+<h2>Controls</h2>
 
-<h3>Technologies</h3>
-<ul>
-  <li></li>
-</ul>
+<table>
+  <thead>
+    <tr>
+      <th>Mode</th>
+      <th>Input</th>
+      <th>Action</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>2D</td>
+      <td><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd></td>
+      <td>Pan the camera</td>
+    </tr>
+    <tr>
+      <td>2D</td>
+      <td>Scroll wheel</td>
+      <td>Zoom in or out</td>
+    </tr>
+    <tr>
+      <td>3D</td>
+      <td><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd></td>
+      <td>Move the camera</td>
+    </tr>
+    <tr>
+      <td>3D</td>
+      <td><kbd>Q</kbd> / <kbd>E</kbd></td>
+      <td>Move down / up</td>
+    </tr>
+    <tr>
+      <td>3D</td>
+      <td>Hold right mouse button and move mouse</td>
+      <td>Look around</td>
+    </tr>
+    <tr>
+      <td>Any</td>
+      <td><kbd>Esc</kbd></td>
+      <td>Exit the application</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Switch between 2D and 3D using the <strong>3D mode</strong> checkbox.</p>
+
+<h3>Export</h3>
+<h3>Process</h3>
+
+<h3>Known Issues</h3>
+<ul></ul>
+
