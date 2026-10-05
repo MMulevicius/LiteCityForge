@@ -25,6 +25,7 @@
   <li>CMake 3.16 or newer</li>
   <li>A graphics card and driver that support OpenGL 3.3</li>
 </ul>
+<p>You can install CMake from the [official CMake download page](https://cmake.org/download/), or as a VS extension. During installation, choose the option to add CMake to your `PATH`. Restart PowerShell after installing it.</p>
 <h4>Build steps</h4>
 <ol>
   <li>Open PowerShell in the folder of your choice</li>
