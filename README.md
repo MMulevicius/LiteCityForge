@@ -159,7 +159,128 @@
 <p>Switch between 2D and 3D using the <strong>3D mode</strong> checkbox.</p>
 
 <h3>Export</h3>
+
+![Generated 3D city from LiteCityForge to Blender ](src/docs/images/ExportFunc.png)
+<p>LiteCityForge exports generated city geometry as a Wavefront OBJ file with a companion MTL file for basic material colours. You can choose the output folder and file name, and select which building parts to include. The export contains mesh positions, faces, and normals, but not texture images or UV coordinates, so the city’s textured appearance won’t carry over to other 3D software; camera, lighting, and generation settings are not saved either.</p>
+
 <h3>Process</h3>
+<p>Road generation uses a seeded, priority-driven graph expansion algorithm. The user’s seed initializes the random number generator, and the algorithm places candidate road segments in a priority queue. It expands the network in two phases: first, it builds the primary highway structure from the city centre; then, it seeds and expands secondary streets from the accepted highways. Each candidate is evaluated before being added to the road graph, and accepted candidates can create further segments for later evaluation.
+
+Candidate validation applies both global and local constraints. Global constraints keep roads within the defined city boundary. Local constraints, used primarily when generating streets, control factors such as road angles and minimum spacing between nodes, and prevent invalid intersections with existing segments. To avoid checking the entire network for every candidate, the RoadQuery system uses a spatial hash grid: nodes are indexed by grid cell, while road segments are indexed in the cells overlapped by their bounding boxes. Queries use nearby cells to gather candidates for distance and intersection checks.
+
+<p><table>
+  <thead>
+    <tr>
+      <th>Scope</th>
+      <th>Rule</th>
+      <th>Implementation</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Global</td>
+      <td>City boundary</td>
+      <td>
+        A candidate endpoint must remain within <code>cityRadius</code>
+        of <code>cityCenter</code>.
+      </td>
+    </tr>
+    <tr>
+      <td>Local</td>
+      <td>Minimum angle at a node</td>
+      <td>
+        <code>minAngleDeg</code> rejects a candidate whose direction is too
+        close to an existing road direction at its start node. The check runs
+        only when that node already has at least two connected segments.
+      </td>
+    </tr>
+    <tr>
+      <td>Local</td>
+      <td>Minimum node spacing</td>
+      <td>
+        <code>minNodeSpacing</code> rejects candidate endpoints that are too
+        close to existing nodes, subject to the snapped-endpoint behavior
+        described below.
+      </td>
+    </tr>
+    <tr>
+      <td>Local</td>
+      <td>Segment intersection</td>
+      <td>
+        <code>intersectionTol</code> is used when checking a candidate against
+        nearby existing segments. Existing segments connected to the
+        candidate's start node are skipped.
+      </td>
+    </tr>
+    <tr>
+      <td>Local</td>
+      <td>Minimum segment spacing</td>
+      <td>
+        <code>minSegmentSpacing</code> rejects a candidate if either of its
+        endpoints is too close to a nearby existing segment.
+      </td>
+    </tr>
+    <tr>
+      <td>Local — streets</td>
+      <td>Highway attachment and clearance</td>
+      <td>
+        Streets may snap to a nearby highway node within
+        <code>streetHighwayAttachRadius</code>. If a street is not connected
+        to a highway, <code>streetHighwayKeepawayRadius</code> is used to
+        prevent it from passing too close to highway geometry, with an
+        exception near its starting connection.
+      </td>
+    </tr>
+    <tr>
+      <td>Local — connectivity</td>
+      <td>Endpoint snapping and loop closure</td>
+      <td>
+        Candidate endpoints can snap to a nearby existing node within
+        <code>snapRadius</code>. A randomized loop-closing check can also
+        snap an endpoint within <code>loopCloseRadius</code>, based on
+        <code>loopCloseChance</code>.
+      </td>
+    </tr>
+    <tr>
+      <td>Generation limits</td>
+      <td>Termination caps</td>
+      <td>
+        <code>maxIterations</code>, <code>maxSegments</code>, and
+        <code>maxStreetSegments</code> limit how long generation continues
+        and how many segments it adds.
+      </td>
+    </tr>
+  </tbody>
+</table></p>
+
+After the road graph is built, road adjacency and boundary offsets are used to derive buildable plots rather than detecting only fully enclosed road loops. The plots are assigned urban, suburban, or rural characteristics according to their distance from the city centre. Those zones influence plot and building dimensions, density, and height limits. Setbacks define the usable area within each plot, and adaptive footprint rules with controlled variation fit buildings to that area. The resulting road, sidewalk, and building meshes are assembled into scene data for rendering.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Aspect</th>
+      <th>Summary</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Priority queue</td>
+      <td>Each candidate insertion or removal takes <code>O(log C)</code>, where <code>C</code> is the number of queued candidates.</td>
+    </tr>
+    <tr>
+      <td>Candidate validation</td>
+      <td>Some checks scan the existing road network, while spatial hashing limits other checks to nearby geometry.</td>
+    </tr>
+    <tr>
+      <td>Overall complexity</td>
+      <td>Depends on the number of candidates, network size, and spatial-grid occupancy; the full process is not accurately described by the priority queue's complexity alone.</td>
+    </tr>
+    <tr>
+      <td>Generation time</td>
+      <td>The application displays elapsed time for the full generation pipeline. The project does not include benchmark results for quoting a typical runtime.</td>
+    </tr>
+  </tbody>
+</table>
 
 <h3>Known Issues</h3>
 <ul></ul>
