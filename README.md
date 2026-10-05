@@ -267,5 +267,5 @@ After the road graph is built, road adjacency and boundary offsets are used to d
 </ul>
 
 <h3>Licensing</h3>
-<p>LiteCityForge's code is licensed under the MIT License; see [LICENSE](LICENSE). Third-party libraries and assets retain their own licenses and notices; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).</p>
+<p>LiteCityForge's code is licensed under the MIT License; see [LICENSE]. Third-party libraries and assets retain their own licenses and notices; see [THIRD_PARTY_NOTICES.md].</p>
 
