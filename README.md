@@ -27,7 +27,7 @@
 </ul>
 <h4>Build steps</h4>
 <ol>
-  <li>Open PowerShell in the folder </li>
+  <li>Open PowerShell in the folder of your choice</li>
   <li>Clone the repository:
 
    ```powershell
