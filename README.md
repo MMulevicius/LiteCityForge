@@ -255,32 +255,6 @@ Candidate validation applies both global and local constraints. Global constrain
 
 After the road graph is built, road adjacency and boundary offsets are used to derive buildable plots rather than detecting only fully enclosed road loops. The plots are assigned urban, suburban, or rural characteristics according to their distance from the city centre. Those zones influence plot and building dimensions, density, and height limits. Setbacks define the usable area within each plot, and adaptive footprint rules with controlled variation fit buildings to that area. The resulting road, sidewalk, and building meshes are assembled into scene data for rendering.</p>
 
-<table>
-  <thead>
-    <tr>
-      <th>Aspect</th>
-      <th>Summary</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>Priority queue</td>
-      <td>Each candidate insertion or removal takes <code>O(log C)</code>, where <code>C</code> is the number of queued candidates.</td>
-    </tr>
-    <tr>
-      <td>Candidate validation</td>
-      <td>Some checks scan the existing road network, while spatial hashing limits other checks to nearby geometry.</td>
-    </tr>
-    <tr>
-      <td>Overall complexity</td>
-      <td>Depends on the number of candidates, network size, and spatial-grid occupancy; the full process is not accurately described by the priority queue's complexity alone.</td>
-    </tr>
-    <tr>
-      <td>Generation time</td>
-      <td>The application displays elapsed time for the full generation pipeline. The project does not include benchmark results for quoting a typical runtime.</td>
-    </tr>
-  </tbody>
-</table>
 
 <h3>Known Issues</h3>
 <ul></ul>
